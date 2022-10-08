@@ -2,20 +2,18 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:solana_wallet_provider/views/solana_wallet_error_view.dart';
-
+import 'solana_wallet_icon_view.dart';
 import '../solana_wallet_icons.dart';
 import '../themes/solana_wallet_theme_extension.dart';
-import 'solana_wallet_icon_view.dart';
 
 
-/// Solana Wallet Timed Out View
+/// Solana Wallet Error View
 /// ------------------------------------------------------------------------------------------------
 
-class SolanaWalletTimedOutView extends StatelessWidget {
+class SolanaWalletErrorView extends StatelessWidget {
   
-  /// Creates a view that displays a `timed out` error [message].
-  const SolanaWalletTimedOutView({
+  /// Creates a view that displays an error [message].
+  const SolanaWalletErrorView({
     super.key,
     this.title,
     this.message,
@@ -31,10 +29,10 @@ class SolanaWalletTimedOutView extends StatelessWidget {
   Widget build(final BuildContext context) {
     final SolanaWalletThemeExtension? extension = SolanaWalletThemeExtension.of(context);
     return SolanaWalletIconView(
-      title: title ?? 'Timed Out', 
-      message: message ?? 'The request has timed out, please try again.', 
+      title: title ?? 'Oops', 
+      message: message ?? 'Something went wrong.', 
       icon: Icon(
-        SolanaWalletIcons.tick, 
+        SolanaWalletIcons.exclamationMark, 
         color: extension?.stateColor?.error, 
         size: SolanaWalletIcons.size,
       ),

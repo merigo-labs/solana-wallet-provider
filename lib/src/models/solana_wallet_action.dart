@@ -1,7 +1,7 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'package:solana_wallet_adapter/models/account.dart';
+import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
 
 
 /// Actions

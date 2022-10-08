@@ -3,7 +3,6 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../solana_wallet_constants.dart';
 import '../layouts/solana_wallet_layout_grid.dart';
 
 

@@ -18,6 +18,8 @@ class SolanaWalletCardTheme with Diagnosticable {
     this.padding,
     this.color,
     this.shape,
+    this.titleTextStyle,
+    this.bodyTextStyle,
   });
 
   /// The outer spacing.
@@ -32,6 +34,12 @@ class SolanaWalletCardTheme with Diagnosticable {
   /// The shape.
   final ShapeBorder? shape;
 
+  /// The title text style.
+  final TextStyle? titleTextStyle;
+
+  /// The body text style.
+  final TextStyle? bodyTextStyle;
+
   /// Linearly interpolate between two [SolanaWalletCardTheme].
   static SolanaWalletCardTheme lerp(
     final SolanaWalletCardTheme? a, 
@@ -42,5 +50,6 @@ class SolanaWalletCardTheme with Diagnosticable {
       padding: EdgeInsets.lerp(a?.padding, b?.padding, t),
       color: Color.lerp(a?.color, b?.color, t),
       shape: ShapeBorder.lerp(a?.shape, b?.shape, t),
+      titleTextStyle: TextStyle.lerp(a?.titleTextStyle, b?.bodyTextStyle, t),
     );
 }

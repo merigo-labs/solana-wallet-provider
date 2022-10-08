@@ -2,7 +2,7 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:solana_wallet_adapter/models/account.dart';
+import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
 import 'solana_wallet_copy_text.dart';
 import 'solana_wallet_list_tile.dart';
 import '../solana_wallet_icons.dart';

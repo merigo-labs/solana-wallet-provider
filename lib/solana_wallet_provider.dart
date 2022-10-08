@@ -4,26 +4,34 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:solana_common/protocol/json_rpc_response.dart';
-import 'package:solana_wallet_adapter/protocol/wallet_adapter_connection.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
-import 'package:solana_wallet_adapter/solana_wallet_adapter_platform_interface.dart';
-import 'package:solana_wallet_adapter/storage/wallet_adapter_state.dart';
-import 'package:solana_wallet_adapter/utils/types.dart';
 import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
 import 'package:solana_web3/rpc_models/signature_notification.dart';
 import 'package:solana_web3/solana_web3.dart';
 import 'package:solana_web3/types/commitment.dart';
-import 'models/solana_wallet_action.dart';
-import 'models/solana_wallet_app_store.dart';
-import 'solana_wallet_constants.dart';
-import 'views/solana_wallet_account_view.dart';
-import 'views/solana_wallet_authorize_view.dart';
-import 'views/solana_wallet_connect_remotely_view.dart';
-import 'views/solana_wallet_download_view.dart';
-import 'views/solana_wallet_error_view.dart';
-import 'views/solana_wallet_progress_indicator_view.dart';
-import 'views/solana_wallet_success_view.dart';
+import 'src/models/solana_wallet_action.dart';
+import 'src/models/solana_wallet_app_store.dart';
+import 'src/solana_wallet_constants.dart';
+import 'src/views/solana_wallet_account_view.dart';
+import 'src/views/solana_wallet_authorize_view.dart';
+import 'src/views/solana_wallet_connect_remotely_view.dart';
+import 'src/views/solana_wallet_download_view.dart';
+import 'src/views/solana_wallet_error_view.dart';
+import 'src/views/solana_wallet_progress_indicator_view.dart';
+import 'src/views/solana_wallet_success_view.dart';
+
+
+/// Exports
+/// ------------------------------------------------------------------------------------------------
+
+export 'src/views/solana_wallet_account_view.dart';
+export 'src/views/solana_wallet_authorize_view.dart';
+export 'src/views/solana_wallet_connect_remotely_view.dart';
+export 'src/views/solana_wallet_download_view.dart';
+export 'src/views/solana_wallet_error_view.dart';
+export 'src/views/solana_wallet_progress_indicator_view.dart';
+export 'src/views/solana_wallet_success_view.dart';
 
 
 /// Inherited Solana Wallet Provider
@@ -130,14 +138,14 @@ class SolanaWalletProvider extends StatefulWidget {
 
 abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
 
+  /// The modal view's route settings.
+  static const RouteSettings _routeSettings = RouteSettings(name: '$packageName/dialog');
+
   /// The Solana JSON-RPC API.
   Connection get connection => widget.connection;
 
   /// The Solana Mobile Wallet Specification API.
   SolanaWalletAdapter get adapter => widget.adapter;
-
-  /// The modal view's route settings.
-  static const RouteSettings routeSettings = RouteSettings(name: '$packageName/modal');
 
   /// {@macro solana_wallet_adapter.hostAuthority}
   String? get hostAuthority => widget.adapter.hostAuthority;
@@ -199,24 +207,43 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
     ).toList(growable: false);
   }
 
-  /// Opens a modal bottom sheet that displays the widget returned by [builder]. This will replace 
-  /// any existing modals opened by the provider. 
-  Future<T?> showView<T>(final Widget Function(BuildContext) builder) async {
-    closeView();
-    return showModalBottomSheet(
-      context: context, 
-      builder: builder, 
-      routeSettings: routeSettings, 
-      backgroundColor: Colors.transparent, 
+  /// Opens a dialog box that displays the widget returned by [builder].
+  Future<T?> showView<T>(final Widget Function(BuildContext) builder) {
+    return Navigator.pushAndRemoveUntil(
+      context, 
+      DialogRoute(
+        context: context,
+        settings: _routeSettings, 
+        builder: (final BuildContext context) {
+          final Size screenSize = MediaQuery.of(context).size;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: screenSize.height,
+                ),
+                child: Dismissible(
+                  key: const ValueKey('dialog_view'),
+                  direction: DismissDirection.down,
+                  onDismissed: (_) => closeView(),
+                  child: builder(context),
+                ),
+              ),
+            ],
+          );
+        }
+      ), 
+      (route) => route.settings != _routeSettings,
     );
-
   }
 
-  /// Closes all modal bottom sheets opened by the provider.
+  /// Closes all dialog boxes opened by the provider.
   void closeView() 
     => Navigator.popUntil(
       context, 
-      (route) => route.settings != routeSettings,
+      (route) => route.settings != _routeSettings,
     );
   
   /// Shows a modal that displays a list of app store links to download supported mobile wallets.
@@ -296,9 +323,9 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   /// Shows a modal that displays a progress indicator.
   Future<void> showProgressIndicatorView<T>({
     required final String title,
-  }) => showView((final BuildContext context) => SolanaWalletProgressIndicatorView(
-      title: title,
-    ));
+  }) => showView(
+      (final BuildContext context) => SolanaWalletProgressIndicatorView(title: title)
+    );
 
   /// {@macro solana_wallet_adapter.authorize}
   Future<AuthorizeResult> authorize() => _association(adapter.authorizeHandler);
@@ -400,13 +427,13 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
         transactions: transactions,
         config: config,
       );
-    } on JsonRpcException catch (error) {
+    } on JsonRpcException catch (error, stackTrace) {
       if (error.code == JsonRpcExceptionCode.methodNotFound) {
         result = await _signAndSendTransactionsFallbackHandler(
           transactions: transactions,
         );
       }
-      rethrow;
+      return Future.error(error, stackTrace);
     }
 
     // Submit the transaction signatures to be confirmed for the provided commitment level.
@@ -492,8 +519,8 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
           (response) => response.isSuccess 
             ? base64.encode(base58.decode(response.result))
             : null,
-          ),
         ),
+      ),
     );
   }
 
@@ -540,15 +567,17 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   ) async {
       try {
         return await adapter.localAssociation(callback);
-      } on SolanaWalletAdapterException catch (error) {
+      } on SolanaWalletAdapterException catch (error, stackTrace) {
+        print('IS MOUNTED $mounted && ERROR CODE = ${error.code}');
         if (mounted && error.code == SolanaWalletAdapterExceptionCode.walletNotFound) {
           final SolanaWalletAction? action = await showDownloadView(context, hostAuthority);
+          print('OPENING DOWNLOAD VIEW WITH RESULT... $action');
           if (mounted && action is ConnectRemotelyAction) {
             showConnectRemoteView(context, action.data);
             return adapter.remoteAssociation(action.data, callback);
           }
         }
-        rethrow;
+        return Future.error(error, stackTrace);
       }
   }
 }

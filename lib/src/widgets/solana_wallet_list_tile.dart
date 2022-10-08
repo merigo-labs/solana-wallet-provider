@@ -2,10 +2,10 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import '../solana_wallet_icons.dart';
 import 'solana_wallet_spacer.dart';
-import '../solana_wallet_constants.dart';
 import '../layouts/solana_wallet_layout_grid.dart';
+import '../solana_wallet_constants.dart';
+import '../solana_wallet_icons.dart';
 import '../themes/solana_wallet_list_tile_theme.dart';
 
 

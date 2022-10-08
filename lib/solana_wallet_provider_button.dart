@@ -3,10 +3,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
-import 'models/solana_wallet_action.dart';
-import 'solana_wallet_icons.dart';
 import 'solana_wallet_provider.dart';
-import 'widgets/solana_wallet_button.dart';
+import 'src/models/solana_wallet_action.dart';
+import 'src/solana_wallet_icons.dart';
+import 'src/widgets/solana_wallet_button.dart';
 
 
 /// Solana Wallet Provider Button

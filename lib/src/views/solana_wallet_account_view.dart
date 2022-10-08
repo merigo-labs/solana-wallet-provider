@@ -2,9 +2,7 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:solana_wallet_adapter/models/account.dart';
-import 'package:solana_wallet_provider/solana_wallet_constants.dart';
-import 'package:solana_wallet_provider/solana_wallet_provider_button.dart';
+import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
 import '../layouts/solana_wallet_layout_grid.dart';
 import '../themes/solana_wallet_theme_extension.dart';
 import '../widgets/solana_wallet_account_list_tile.dart';

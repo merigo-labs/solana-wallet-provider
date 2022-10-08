@@ -2,7 +2,7 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:solana_wallet_provider/layouts/solana_wallet_layout_grid.dart';
+import 'package:solana_wallet_provider/src/layouts/solana_wallet_layout_grid.dart';
 import 'solana_wallet_spacer.dart';
 
 

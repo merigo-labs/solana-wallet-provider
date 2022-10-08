@@ -2,9 +2,9 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
+import 'solana_wallet_icon_view.dart';
 import '../solana_wallet_icons.dart';
 import '../themes/solana_wallet_theme_extension.dart';
-import 'solana_wallet_icon_view.dart';
 
 
 /// Solana Wallet Success View

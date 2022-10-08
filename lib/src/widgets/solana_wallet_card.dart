@@ -3,8 +3,8 @@
 
 import 'package:flutter/material.dart';
 import 'solana_wallet_dismiss_bar.dart';
-import '../solana_wallet_constants.dart';
 import '../layouts/solana_wallet_layout_grid.dart';
+import '../solana_wallet_constants.dart';
 import '../themes/solana_wallet_card_theme.dart';
 import '../themes/solana_wallet_theme_extension.dart';
 
@@ -42,14 +42,15 @@ class SolanaWalletCard extends StatelessWidget {
           SolanaWalletLayoutGrid.x2,
         ),
       ),
-    );
-
-  /// Returns the title's default style.
-  TextStyle defaultTitltTextStyle()
-    => const TextStyle(
-      fontSize: fontSize + 2, 
-      fontWeight: FontWeight.bold,
-      overflow: TextOverflow.ellipsis,
+      titleTextStyle: const TextStyle(
+        fontSize: fontSize + 2, 
+        fontWeight: FontWeight.bold,
+        overflow: TextOverflow.ellipsis,
+      ),
+      bodyTextStyle: TextStyle(
+        fontSize: fontSize, 
+        color: subtextColourOf(theme),
+      ),
     );
 
   @override
@@ -92,19 +93,18 @@ class SolanaWalletCard extends StatelessWidget {
               ),
               child: Text(
                 title,
-                style: extension?.titleTextStyle ?? defaultTitltTextStyle(),
+                style: cardTheme?.titleTextStyle ?? defaultCardTheme.titleTextStyle,
               ),
             ),
             Flexible(
               child: DefaultTextStyle(
                 textAlign: TextAlign.center,
-                style: extension?.bodyTextStyle ?? TextStyle(
-                  fontSize: fontSize, 
-                  color: subtextColourOf(theme),
-                ),
+                style: cardTheme?.bodyTextStyle ?? defaultCardTheme.bodyTextStyle!,
                 child: Padding(
                   padding: padding,
-                  child: child,
+                  child: SingleChildScrollView(
+                    child: child,
+                  ),
                 ),
               ),
             ),

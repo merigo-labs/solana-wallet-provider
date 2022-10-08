@@ -2,11 +2,12 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:solana_wallet_provider/themes/solana_wallet_state_color.dart';
+import 'package:solana_wallet_provider/src/themes/solana_wallet_list_tile_theme.dart';
 import '../widgets/solana_wallet_button.dart';
 import 'solana_wallet_card_theme.dart';
 import 'solana_wallet_dismiss_bar_theme.dart';
 import 'solana_wallet_qr_code_theme.dart';
+import 'solana_wallet_state_color.dart';
 
 
 /// Solana Wallet Theme Extension
@@ -19,12 +20,11 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
   const SolanaWalletThemeExtension({
     this.cardTheme,
     this.barTheme,
-    this.titleTextStyle,
-    this.bodyTextStyle,
     this.qrCodeTheme,
     this.stateColor,
     this.linkColor,
     this.buttonStyle,
+    this.listTileTheme,
   });
   
   /// The card style.
@@ -32,12 +32,6 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
 
   /// The bar style.
   final SolanaWalletDismissBarTheme? barTheme;
-
-  /// The title text style.
-  final TextStyle? titleTextStyle;
-
-  /// The body text style.
-  final TextStyle? bodyTextStyle;
 
   /// The QR code style.
   final SolanaWalletQrCodeTheme? qrCodeTheme;
@@ -51,6 +45,9 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
   /// The style applied to buttons.
   final SolanaWalletButtonStyle? buttonStyle;
 
+  /// The theme applied to list tiles.
+  final SolanaWalletListTileTheme? listTileTheme;
+
   /// Returns the [SolanaWalletThemeExtension] for the provided [context].
   static SolanaWalletThemeExtension? of(final BuildContext context)
     => Theme.of(context).extension<SolanaWalletThemeExtension>();
@@ -59,21 +56,19 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
   ThemeExtension<SolanaWalletThemeExtension> copyWith({
     final SolanaWalletCardTheme? cardTheme,
     final SolanaWalletDismissBarTheme? barTheme,
-    final TextStyle? titleTextStyle, 
-    final TextStyle? bodyTextStyle,
     final SolanaWalletQrCodeTheme? qrCodeTheme,
     final SolanaWalletStateColor? stateColor,
     final Color? linkColor,
     final SolanaWalletButtonStyle? buttonStyle,
+    final SolanaWalletListTileTheme? listTileTheme,
   }) => SolanaWalletThemeExtension(
       cardTheme: cardTheme ?? this.cardTheme,
       barTheme: barTheme ?? this.barTheme,
-      titleTextStyle: titleTextStyle ?? this.titleTextStyle,
-      bodyTextStyle: bodyTextStyle ?? this.bodyTextStyle,
       qrCodeTheme: qrCodeTheme ?? this.qrCodeTheme,
       stateColor: stateColor ?? this.stateColor,
       linkColor: linkColor ?? this.linkColor,
       buttonStyle: buttonStyle ?? this.buttonStyle,
+      listTileTheme: listTileTheme ?? this.listTileTheme,
     );
 
   @override
@@ -85,12 +80,11 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
     return SolanaWalletThemeExtension(
       cardTheme: SolanaWalletCardTheme.lerp(cardTheme, other.cardTheme, t),
       barTheme: SolanaWalletDismissBarTheme.lerp(barTheme, other.barTheme, t),
-      titleTextStyle: TextStyle.lerp(titleTextStyle, other.titleTextStyle, t),
-      bodyTextStyle: TextStyle.lerp(bodyTextStyle, other.bodyTextStyle, t),
       qrCodeTheme: SolanaWalletQrCodeTheme.lerp(qrCodeTheme, other.qrCodeTheme, t),
       stateColor: SolanaWalletStateColor.lerp(stateColor, other.stateColor, t),
       linkColor: Color.lerp(linkColor, other.linkColor, t),
       buttonStyle: SolanaWalletButtonStyle.lerp(buttonStyle, other.buttonStyle, t),
+      listTileTheme: SolanaWalletListTileTheme.lerp(listTileTheme, other.listTileTheme, t),
     );
   }
 }

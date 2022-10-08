@@ -14,7 +14,7 @@
 /// 
 ///
 import 'package:flutter/widgets.dart';
-import 'package:solana_wallet_provider/solana_wallet_constants.dart';
+import 'package:solana_wallet_provider/src/solana_wallet_constants.dart';
 
 class SolanaWalletIcons {
   SolanaWalletIcons._();
