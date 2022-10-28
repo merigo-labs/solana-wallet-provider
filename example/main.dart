@@ -7,7 +7,7 @@ void main(final List<String> arguments) async {
   runApp(MaterialApp(
     home: Scaffold(
       body: SolanaWalletProvider.create(
-        identity: Identity(),
+        identity: const AppIdentity(),
         child: const Center(
           child: Text('APP'),
         ),

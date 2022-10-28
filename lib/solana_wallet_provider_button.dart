@@ -13,7 +13,7 @@ import 'src/widgets/solana_wallet_button.dart';
 /// ------------------------------------------------------------------------------------------------
 
 class SolanaWalletProviderButton extends StatefulWidget {
-  
+
   /// Connects the dApp to a wallet endpoint.
   const SolanaWalletProviderButton({
     super.key,

@@ -24,7 +24,7 @@ class SolanaWalletAuthorizeView extends StatefulWidget {
   });
 
   /// App information.
-  final Identity? identity;
+  final AppIdentity? identity;
 
   /// Called when the `connect` button is pressed.
   final VoidCallback? onTapAuthorize;
