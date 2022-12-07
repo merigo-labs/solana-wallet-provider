@@ -1,11 +1,13 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
 import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
+import 'package:solana_web3/rpc_models/blockhash_with_expiry_block_height.dart';
 import 'package:solana_web3/rpc_models/signature_notification.dart';
 import 'package:solana_web3/solana_web3.dart';
 import 'package:solana_web3/types/commitment.dart';
@@ -24,18 +26,18 @@ import 'src/views/solana_wallet_success_view.dart';
 /// Exports
 /// ------------------------------------------------------------------------------------------------
 
-// TODO: Export the entire solana_web3 and solana_wallet_adapter packages
-
+// solana_wallet_adapter
 export 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
+
+// solana_web3
+export 'package:solana_web3/exceptions/index.dart';
+export 'package:solana_web3/programs/index.dart';
+export 'package:solana_web3/rpc_config/index.dart';
+export 'package:solana_web3/rpc_models/index.dart';
+export 'package:solana_web3/types/index.dart';
 export 'package:solana_web3/solana_web3.dart';
-export 'package:solana_web3/programs/system.dart';
-export 'package:solana_web3/programs/stake_pool.dart';
-export 'package:solana_web3/types/account_encoding.dart';
-export 'package:solana_web3/types/commitment.dart';
-export 'package:solana_web3/rpc_config/get_account_info_config.dart';
-export 'package:solana_web3/rpc_config/get_balance_config.dart';
-export 'package:solana_web3/rpc_config/commitment_config.dart';
-export 'package:solana_web3/rpc_config/send_transaction_config.dart';
+
+// src/views/
 export 'src/views/solana_wallet_account_view.dart';
 export 'src/views/solana_wallet_authorize_view.dart';
 export 'src/views/solana_wallet_connect_remotely_view.dart';
@@ -43,6 +45,12 @@ export 'src/views/solana_wallet_download_view.dart';
 export 'src/views/solana_wallet_error_view.dart';
 export 'src/views/solana_wallet_progress_indicator_view.dart';
 export 'src/views/solana_wallet_success_view.dart';
+
+
+/// Transaction Signers
+/// ------------------------------------------------------------------------------------------------
+
+typedef TransactionSigners = List<Signer>;
 
 
 /// Inherited Solana Wallet Provider
@@ -102,7 +110,7 @@ class SolanaWalletProvider extends StatefulWidget {
   /// A helper constructor that applies default values when creating the [connection] and [adapter].
   factory SolanaWalletProvider.create({
     required Widget child,
-    required AppIdentity? identity,
+    required AppIdentity identity,
     Cluster? cluster,
     Commitment? commitment,
     String? hostAuthority,
@@ -114,7 +122,7 @@ class SolanaWalletProvider extends StatefulWidget {
         commitment: commitment,
       ), 
       adapter: SolanaWalletAdapter(
-        identity ?? const AppIdentity(),
+        identity,
         cluster: defaultCluster,
         hostAuthority: hostAuthority,
       ),
@@ -180,45 +188,40 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   /// Calls for the widget to be rebuilt.
   void _onStateChanged() => setState(() {});
 
-  Future<List<Transaction>> _applyDefaults(final List<Transaction> transactions) async {
-    final latestBlockhash = await connection.getLatestBlockhash();
-    final defaultFeePayerAddress = PublicKey.tryFromBase64(feePayerAccount?.address);
+  /// Fetches the latest blockhash if any of the [transactions] are missing a `recentBlockhash` or 
+  /// `lastValidBlockHeight` value. 
+  FutureOr<BlockhashWithExpiryBlockHeight?> _defaultBlockhash(final List<Transaction> transactions) {
+    return transactions.any((tx) => tx.recentBlockhash == null || tx.lastValidBlockHeight == null)
+      ? connection.getLatestBlockhash()
+      : Future.value(null);
+  }
+
+  /// Apply default values to each of the [transactions].
+  Future<Iterable<Transaction>> _applyDefaults(final List<Transaction> transactions) async {
+    final blockhash = await _defaultBlockhash(transactions);
     return transactions.map((final Transaction transaction) => transaction.copyWith(
-      recentBlockhash: latestBlockhash.blockhash,
-      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-      feePayer: transaction.feePayer ?? defaultFeePayerAddress,
-    )).toList(growable: false);
+      recentBlockhash: transaction.recentBlockhash ?? blockhash?.blockhash,
+      lastValidBlockHeight: transaction.lastValidBlockHeight ?? blockhash?.lastValidBlockHeight,
+      feePayer: transaction.feePayer ?? PublicKey.tryFromBase64(feePayerAccount?.address),
+    ));
   }
 
   /// Serializes [transactions] into a list of base-64 encoded strings.
-  Future<List<String>> _serialize(final List<Transaction> transactions, 
-    final List<Signer> signers,
-  ) async {
-    final latestBlockhash = await connection.getLatestBlockhash();
-    final defaultFeePayerAddress = PublicKey.tryFromBase64(feePayerAccount?.address);
-    const config = SerializeConfig(
-      requireAllSignatures: false, 
-      verifySignatures: false,
-    );
+  List<String> _serialize(
+    final Iterable<Transaction> transactions,
+  ) {
+    const SerializeConfig config = SerializeConfig(requireAllSignatures: false);
     return transactions.map(
-      (final Transaction transaction) {
-        final copy = transaction.copyWith(
-          recentBlockhash: latestBlockhash.blockhash,
-          lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-          feePayer: transaction.feePayer ?? defaultFeePayerAddress,
-        );
-        if (signers.isNotEmpty) {
-          copy.sign(signers);
-        }
-        return copy
-          .serialize(config)
-          .getString(BufferEncoding.base64);
-      }
-    ).toList(growable: false);
+      (final Transaction transaction) 
+        => transaction
+            .serialize(config)
+            .getString(BufferEncoding.base64)
+    )
+    .toList(growable: false);
   }
 
   /// Serializes [messages] into a list of base-64 encoded strings.
-  Future<List<String>> _serializeMessages(final List<Message> messages) async {
+  List<String> _serializeMessages(final Iterable<Message> messages) {
     return messages.map(
       (final Message message) 
         => message.serialize()
@@ -396,16 +399,65 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
     }
   }
 
+  /// Assert that [transactions] and [signers] are the same length.
+  void _debugAssertSignersLength(
+    final List transactions,
+    final List? signers,
+  ) {
+    assert(
+      signers == null || signers.length == transactions.length,
+      'The number of transaction signers does not match the number of transactions.',
+    );
+  }
+
+  /// Sign each of the [signedPayloads] with the corresponding [signers].
+  /// 
+  /// ```
+  /// _partialSign(
+  ///   [
+  ///     'signed payload 1', 
+  ///     'signed payload 2', 
+  ///     'signed payload 3',
+  ///   ],
+  ///   signers: [
+  ///     ['signer 1', 'signer 2'], // Additional signers for 'signed payload 1'.
+  ///     [],                       // Additional signers for 'signed payload 2'.
+  ///     ['signer 1'],             // Additional signers for 'signed payload 3'.
+  ///   ], 
+  /// );
+  /// ```
+  List<String> _partialSign(
+    final List<String> signedPayloads, { 
+    required final List<TransactionSigners>? signers, 
+  }) {
+    if (signers == null) {
+      return signedPayloads;
+    }
+    final List<String> payloads = [];
+    for (int i = 0; i < signedPayloads.length; ++i) {
+      final String signedPayload = signedPayloads[i];
+      final TransactionSigners transactionSigners = signers[i];
+      if (transactionSigners.isNotEmpty) {
+        final Transaction signedTransaction = Transaction.fromBase64(signedPayload);
+        signedTransaction.partialSign(transactionSigners);
+        payloads.add(signedTransaction.serialize().getString(BufferEncoding.base64));
+      } else {
+        payloads.add(signedPayload);
+      }
+    }
+    return payloads;
+  }
+
   /// {@macro solana_wallet_adapter.signTransactions}
   Future<SignTransactionsResult> signTransactions({
     required final List<Transaction> transactions,
-    // final List<Signer> signers = const [],
+    final List<TransactionSigners>? signers,
     final AssociationType? type,
   }) => _signWithWalletProgressIndicatorView(
       'Sign Transactions', 
       () => signTransactionsHandler(
         transactions: transactions, 
-        // signers: signers,
+        signers: signers,
         type: type,
       ),
     );
@@ -413,48 +465,40 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   /// {@macro solana_wallet_adapter.signTransactions}
   Future<SignTransactionsResult> signTransactionsHandler({
     required final List<Transaction> transactions,
-    // final List<Signer> signers = const [],
+    final List<TransactionSigners>? signers,
     final AssociationType? type,
-  }) => _association((connection) async {
+  }) {
+    _debugAssertSignersLength(transactions, signers);
+    return _association((connection) async {
       await adapter.reauthorizeOrAuthorizeHandler(connection);
-      await _requestAirdropForFeePayerAccount();
-      final txs = await _applyDefaults(transactions);
-      return adapter.signTransactionsHandler(
+      final Iterable<Transaction> txs = await _applyDefaults(transactions);
+      final SignTransactionsResult result = await adapter.signTransactionsHandler(
         connection, 
         type: type,
-        transactions: txs.map(
-          (e) => e.serialize(
-            const SerializeConfig(requireAllSignatures: false, verifySignatures: false)
-          ).getString(BufferEncoding.base64)
-        ).toList(growable: false),
+        transactions: _serialize(txs),
       );
-      
-      // final t = Transaction.fromBase64(
-      //   x.signedPayloads.first,
-      // );
-      
-      // if (signers.isNotEmpty) {
-      //   t.partialSign(signers);
-      // }
-      
-      // return SignTransactionsResult(
-      //   signedPayloads: [t.serialize().getString(BufferEncoding.base64)],
-      // );
+      return SignTransactionsResult(
+        signedPayloads: _partialSign(
+          result.signedPayloads, 
+          signers: signers,
+        ),
+      );
     });
+  }
 
   /// {@macro solana_wallet_adapter.signAndSendTransactions}
   Future<SignAndSendTransactionsResult> signAndSendTransactions({
     required final List<Transaction> transactions,
     final SignAndSendTransactionsConfig? config,
     final Commitment? commitment = Commitment.confirmed,
-    // final List<Signer> signers = const [],
+    final List<TransactionSigners>? signers,
   }) => _signWithWalletProgressIndicatorView(
       'Sign And Send Transactions', 
       () => signAndSendTransactionsHandler(
         transactions: transactions, 
         config: config,
         commitment: commitment,
-        // signers: signers,
+        signers: signers,
       ),
     );
 
@@ -466,24 +510,25 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
     required final List<Transaction> transactions,
     final SignAndSendTransactionsConfig? config,
     final Commitment? commitment = Commitment.confirmed,
-    // final List<Signer> signers = const [],
+    final List<TransactionSigners>? signers,
   }) async {
-
     /// Sign and send the transaction.
     late final SignAndSendTransactionsResult result;
     try {
+      if (signers != null && signers.any((signers) => signers.isNotEmpty)) {
+        throw const JsonRpcException('', code: JsonRpcExceptionCode.methodNotFound);
+      }
       // throw JsonRpcException('', code: JsonRpcExceptionCode.methodNotFound);
       result = await _signAndSendTransactionsHandler(
         transactions: transactions,
         config: config,
-        //// signers: signers,
       );
     } on JsonRpcException catch (error, stackTrace) {
       print('SIGN AND SEND ERROR (${error.code}) $error');
       if (error.code == JsonRpcExceptionCode.methodNotFound) {
         result = await _signAndSendTransactionsFallbackHandler(
           transactions: transactions,
-          // signers: signers,
+          signers: signers,
         );
       } else {
         return Future.error(error, stackTrace);
@@ -536,14 +581,13 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   Future<SignAndSendTransactionsResult> _signAndSendTransactionsHandler({
     required final List<Transaction> transactions,
     final SignAndSendTransactionsConfig? config,
-    //// final List<Signer> signers = const [],
   }) => _association((connection) async {
       await adapter.reauthorizeOrAuthorizeHandler(connection);
-      await _requestAirdropForFeePayerAccount();
+      final Iterable<Transaction> txs = await _applyDefaults(transactions);
       return adapter.signAndSendTransactionsHandler(
         connection, 
-        transactions: await _serialize(transactions, const []),
         config: config,
+        transactions: _serialize(txs),
       );
     });
 
@@ -552,19 +596,18 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   Future<SignAndSendTransactionsResult> _signAndSendTransactionsFallbackHandler({
     required final List<Transaction> transactions,
     final SignAndSendTransactionsConfig? config,
-    // final List<Signer> signers = const [],
+    final List<TransactionSigners>? signers,
   }) async {
     /// Sign the transactions using the wallet.
     final SignTransactionsResult result = await signTransactionsHandler(
       transactions: transactions,
-      // signers: signers,
+      signers: signers,
     );
 
     /// Send the signed transactions to the network for processing.
     final List<JsonRpcResponse> responses = await connection.sendSignedTransactionsRaw(
       result.signedPayloads,
       config: SendTransactionConfig(
-        skipPreflight: false,
         minContextSlot: config?.minContextSlot,
       ),
     );
@@ -585,12 +628,14 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   Future<SignMessagesResult> signMessages({
     required final List<Message> messages,
     required final List<PublicKey> addresses,
+    final List<TransactionSigners>? signers,
     final AssociationType? type,
   }) => _signWithWalletProgressIndicatorView(
       'Sign Messages', 
       () => signMessagesHandler(
         messages: messages, 
         addresses: addresses,
+        signers: signers,
         type: type,
       ),
     );
@@ -599,16 +644,25 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   Future<SignMessagesResult> signMessagesHandler({
     required final List<Message> messages,
     required final List<PublicKey> addresses,
+    final List<TransactionSigners>? signers,
     final AssociationType? type,
-  }) => _association((connection) async {
+  }) {
+    _debugAssertSignersLength(messages, signers);
+    return _association((connection) async {
       await adapter.reauthorizeOrAuthorizeHandler(connection);
-      await _requestAirdropForFeePayerAccount();
-      return adapter.signMessagesHandler(
+      final SignMessagesResult result = await adapter.signMessagesHandler(
         connection,
-        messages: await _serializeMessages(messages), 
+        messages: _serializeMessages(messages), 
         addresses: addresses.map((address) => address.toBase64()).toList(growable: false),
       );
+      return SignMessagesResult(
+        signedPayloads: _partialSign(
+          result.signedPayloads, 
+          signers: signers,
+        ),
+      );
     });
+  }
 
   /// {@macro solana_wallet_adapter.cloneAuthorization}
   Future<CloneAuthorizationResult> cloneAuthorization() {
