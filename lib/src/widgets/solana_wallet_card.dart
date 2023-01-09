@@ -61,6 +61,7 @@ class SolanaWalletCard extends StatelessWidget {
     final SolanaWalletCardTheme? cardTheme = extension?.cardTheme;
     final EdgeInsets padding = cardTheme?.padding ?? defaultCardTheme.padding!;
     return Container(
+      width: double.infinity,
       margin: cardTheme?.margin ?? defaultCardTheme.margin,
       child: Material(
         type: MaterialType.card,

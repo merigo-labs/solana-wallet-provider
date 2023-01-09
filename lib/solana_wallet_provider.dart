@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
 import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
+import 'package:solana_web3/rpc_config/get_latest_blockhash_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
 import 'package:solana_web3/rpc_models/blockhash_with_expiry_block_height.dart';
 import 'package:solana_web3/rpc_models/signature_notification.dart';
@@ -111,9 +112,9 @@ class SolanaWalletProvider extends StatefulWidget {
   factory SolanaWalletProvider.create({
     required Widget child,
     required AppIdentity identity,
-    Cluster? cluster,
-    Commitment? commitment,
-    String? hostAuthority,
+    final Cluster? cluster,
+    final Commitment? commitment = Commitment.confirmed,
+    final String? hostAuthority,
   }) {
     final defaultCluster = cluster ?? Cluster.mainnet;
     return SolanaWalletProvider(
@@ -192,13 +193,19 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   /// `lastValidBlockHeight` value. 
   FutureOr<BlockhashWithExpiryBlockHeight?> _defaultBlockhash(final List<Transaction> transactions) {
     return transactions.any((tx) => tx.recentBlockhash == null || tx.lastValidBlockHeight == null)
-      ? connection.getLatestBlockhash()
+      ? connection.getLatestBlockhash(
+          config: const GetLatestBlockhashConfig(
+            commitment: Commitment.finalized,
+          ),
+        )
       : Future.value(null);
   }
 
   /// Apply default values to each of the [transactions].
-  Future<Iterable<Transaction>> _applyDefaults(final List<Transaction> transactions) async {
-    final blockhash = await _defaultBlockhash(transactions);
+  Iterable<Transaction> _applyDefaults(
+    final List<Transaction> transactions, 
+    final BlockhashWithExpiryBlockHeight? blockhash,
+  ) {
     return transactions.map((final Transaction transaction) => transaction.copyWith(
       recentBlockhash: transaction.recentBlockhash ?? blockhash?.blockhash,
       lastValidBlockHeight: transaction.lastValidBlockHeight ?? blockhash?.lastValidBlockHeight,
@@ -467,11 +474,13 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
     required final List<Transaction> transactions,
     final List<TransactionSigners>? signers,
     final AssociationType? type,
-  }) {
+  }) async {
     _debugAssertSignersLength(transactions, signers);
+    // TODO: Move into _association block after Flutter update.
+    final BlockhashWithExpiryBlockHeight? blockhash = await _defaultBlockhash(transactions);
     return _association((connection) async {
       await adapter.reauthorizeOrAuthorizeHandler(connection);
-      final Iterable<Transaction> txs = await _applyDefaults(transactions);
+      final Iterable<Transaction> txs = _applyDefaults(transactions, blockhash);
       final SignTransactionsResult result = await adapter.signTransactionsHandler(
         connection, 
         type: type,
@@ -581,15 +590,19 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
   Future<SignAndSendTransactionsResult> _signAndSendTransactionsHandler({
     required final List<Transaction> transactions,
     final SignAndSendTransactionsConfig? config,
-  }) => _association((connection) async {
+  }) async {
+    // TODO: Move into _association block after Flutter update.
+    final BlockhashWithExpiryBlockHeight? blockhash = await _defaultBlockhash(transactions);
+    return _association((connection) async {
       await adapter.reauthorizeOrAuthorizeHandler(connection);
-      final Iterable<Transaction> txs = await _applyDefaults(transactions);
+      final Iterable<Transaction> txs = _applyDefaults(transactions, blockhash);
       return adapter.signAndSendTransactionsHandler(
         connection, 
         config: config,
         transactions: _serialize(txs),
       );
     });
+  }
 
   /// Sign [transactions] using the wallet's [signTransactions] method, then send the signed 
   /// transactions signatures to the network using [connection.sendSignedTransactions].
@@ -680,7 +693,7 @@ abstract class SolanaWalletProviderState extends State<SolanaWalletProvider> {
       try {
         return await adapter.localAssociation(callback);
       } on SolanaWalletAdapterException catch (error, stackTrace) {
-        print('IS MOUNTED $mounted && ERROR CODE = ${error.code}');
+        print('ERROR $error \n ERROR CODE = ${error.code}');
         if (mounted && error.code == SolanaWalletAdapterExceptionCode.walletNotFound) {
           final SolanaWalletAction? action = await showDownloadView(context, hostAuthority);
           print('OPENING DOWNLOAD VIEW WITH RESULT... $action');
