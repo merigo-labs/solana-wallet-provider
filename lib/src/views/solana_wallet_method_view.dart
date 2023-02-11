@@ -146,9 +146,14 @@ class SolanaWalletMethodView<T> extends StatefulWidget {
     final Object? error,
     final String? defaultMessage,
   ]) {
-    String? message = error?.toString();
-    final RegExp regexp = RegExp(r'^\w*Exception: ');
-    message = message?.replaceAll(regexp, '');
+    String? message; 
+    if (error is SolanaException) {
+      message = error.message;
+    } else {
+      message = error?.toString();
+      final RegExp regexp = RegExp(r'^\w*Exception: ');
+      message = message?.replaceAll(regexp, '');
+    }
     return  SolanaWalletMethodView(
       iconBuilder: errorIconBuilder,
       message: message ?? defaultMessage ?? 'Something has gone wrong.',

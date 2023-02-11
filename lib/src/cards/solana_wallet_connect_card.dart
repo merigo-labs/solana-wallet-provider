@@ -101,7 +101,6 @@ class _SolanaWalletConnectCardState extends State<SolanaWalletConnectCard> {
   /// Makes a local association request to connect to a wallet running on the current device.
   Future<AuthorizeResult?> _localAssociation() {
     _setAssociationType(AssociationType.local);
-    return _simulateErrorRequest();
     return _adapter.localAssociation(_adapter.authorizeHandler);
   }
 
