@@ -7,19 +7,22 @@
         {
             "name": "solana_wallet_provider",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "program": "example/lib/main.dart",
         },
         {
             "name": "solana_wallet_provider (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "program": "example/lib/main.dart",
         },
         {
             "name": "solana_wallet_provider (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "program": "example/lib/main.dart",
         }
     ]
 }

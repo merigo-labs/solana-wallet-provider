@@ -4,16 +4,16 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../views/solana_wallet_connect_remotely_view.dart';
 
 
 /// Solana Wallet Qr Code Theme
 /// ------------------------------------------------------------------------------------------------
 
+/// A theme that defines the style of a QR code.
 @immutable
 class SolanaWalletQrCodeTheme with Diagnosticable {
   
-  /// The theme used to style the QR code of a [SolanaWalletConnectRemotelyView].
+  /// The styles applied to a QR code.
   const SolanaWalletQrCodeTheme({
     this.size,
     this.padding,

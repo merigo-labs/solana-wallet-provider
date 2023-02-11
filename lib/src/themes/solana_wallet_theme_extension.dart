@@ -2,51 +2,41 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'package:solana_wallet_provider/src/themes/solana_wallet_list_tile_theme.dart';
-import '../widgets/solana_wallet_button.dart';
 import 'solana_wallet_card_theme.dart';
-import 'solana_wallet_dismiss_bar_theme.dart';
 import 'solana_wallet_qr_code_theme.dart';
-import 'solana_wallet_state_color.dart';
+import 'solana_wallet_method_view_theme.dart';
 
 
 /// Solana Wallet Theme Extension
 /// ------------------------------------------------------------------------------------------------
 
+/// A theme extension that defines styles for [SolanaWalletProvider]'s UI.
 @immutable
 class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtension> {
   
-  /// Styles the wallet adapter's UI.
+  /// Styles for [SolanaWalletProvider]'s UI.
   const SolanaWalletThemeExtension({
     this.cardTheme,
-    this.barTheme,
     this.qrCodeTheme,
-    this.stateColor,
-    this.linkColor,
-    this.buttonStyle,
-    this.listTileTheme,
+    this.primaryButtonStyle,
+    this.secondaryButtonStyle,
+    this.stateTheme,
   });
   
   /// The card style.
   final SolanaWalletCardTheme? cardTheme;
 
-  /// The bar style.
-  final SolanaWalletDismissBarTheme? barTheme;
-
   /// The QR code style.
   final SolanaWalletQrCodeTheme? qrCodeTheme;
 
-  /// The icon colours for each state.
-  final SolanaWalletStateColor? stateColor;
+  /// Primary button style.
+  final ButtonStyle? primaryButtonStyle;
 
-  /// The colour applied to hyperlink text.
-  final Color? linkColor;
-
-  /// The style applied to buttons.
-  final SolanaWalletButtonStyle? buttonStyle;
-
-  /// The theme applied to list tiles.
-  final SolanaWalletListTileTheme? listTileTheme;
+  /// Secondary button style.
+  final ButtonStyle? secondaryButtonStyle;
+  
+  /// The method view styles.
+  final SolanaWalletMethodViewTheme? stateTheme;
 
   /// Returns the [SolanaWalletThemeExtension] for the provided [context].
   static SolanaWalletThemeExtension? of(final BuildContext context)
@@ -55,20 +45,16 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
   @override
   ThemeExtension<SolanaWalletThemeExtension> copyWith({
     final SolanaWalletCardTheme? cardTheme,
-    final SolanaWalletDismissBarTheme? barTheme,
     final SolanaWalletQrCodeTheme? qrCodeTheme,
-    final SolanaWalletStateColor? stateColor,
-    final Color? linkColor,
-    final SolanaWalletButtonStyle? buttonStyle,
-    final SolanaWalletListTileTheme? listTileTheme,
+    final ButtonStyle? primaryButtonStyle,
+    final ButtonStyle? secondaryButtonStyle,
+    final SolanaWalletMethodViewTheme? stateTheme,
   }) => SolanaWalletThemeExtension(
       cardTheme: cardTheme ?? this.cardTheme,
-      barTheme: barTheme ?? this.barTheme,
       qrCodeTheme: qrCodeTheme ?? this.qrCodeTheme,
-      stateColor: stateColor ?? this.stateColor,
-      linkColor: linkColor ?? this.linkColor,
-      buttonStyle: buttonStyle ?? this.buttonStyle,
-      listTileTheme: listTileTheme ?? this.listTileTheme,
+      primaryButtonStyle: primaryButtonStyle ?? this.primaryButtonStyle,
+      secondaryButtonStyle: secondaryButtonStyle ?? this.secondaryButtonStyle,
+      stateTheme: stateTheme ?? this.stateTheme,
     );
 
   @override
@@ -79,12 +65,10 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
     if (other is! SolanaWalletThemeExtension) { return this; }
     return SolanaWalletThemeExtension(
       cardTheme: SolanaWalletCardTheme.lerp(cardTheme, other.cardTheme, t),
-      barTheme: SolanaWalletDismissBarTheme.lerp(barTheme, other.barTheme, t),
       qrCodeTheme: SolanaWalletQrCodeTheme.lerp(qrCodeTheme, other.qrCodeTheme, t),
-      stateColor: SolanaWalletStateColor.lerp(stateColor, other.stateColor, t),
-      linkColor: Color.lerp(linkColor, other.linkColor, t),
-      buttonStyle: SolanaWalletButtonStyle.lerp(buttonStyle, other.buttonStyle, t),
-      listTileTheme: SolanaWalletListTileTheme.lerp(listTileTheme, other.listTileTheme, t),
+      primaryButtonStyle: ButtonStyle.lerp(primaryButtonStyle, other.primaryButtonStyle, t),
+      secondaryButtonStyle: ButtonStyle.lerp(secondaryButtonStyle, other.secondaryButtonStyle, t),
+      stateTheme: other.stateTheme,
     );
   }
 }
