@@ -19,7 +19,9 @@ class SolanaWalletCardTheme with Diagnosticable {
     this.color,
     this.margin,
     this.padding,
-    this.titlePadding,
+    this.headerColor,
+    this.headerPadding,
+    this.bodyColor,
     this.bodyPadding,
     this.spacing,
     this.shape,
@@ -36,10 +38,16 @@ class SolanaWalletCardTheme with Diagnosticable {
   /// The inner edge padding.
   final EdgeInsets? padding;
 
-  /// The title section padding.
-  final EdgeInsets? titlePadding;
+  /// The header section's background color.
+  final Color? headerColor;
 
-  /// The body section padding.
+  /// The header section's padding.
+  final EdgeInsets? headerPadding;
+
+  /// The body section's background color.
+  final Color? bodyColor;
+
+  /// The body section's padding.
   final EdgeInsets? bodyPadding;
 
   /// The vertical space between the title and body.
@@ -63,7 +71,9 @@ class SolanaWalletCardTheme with Diagnosticable {
       color: Color.lerp(a?.color, b?.color, t),
       margin: EdgeInsets.lerp(a?.margin, b?.margin, t),
       padding: EdgeInsets.lerp(a?.padding, b?.padding, t),
-      titlePadding: EdgeInsets.lerp(a?.titlePadding, b?.titlePadding, t),
+      headerColor: Color.lerp(a?.headerColor, b?.headerColor, t),
+      headerPadding: EdgeInsets.lerp(a?.headerPadding, b?.headerPadding, t),
+      bodyColor: Color.lerp(a?.bodyColor, b?.bodyColor, t),
       bodyPadding: EdgeInsets.lerp(a?.bodyPadding, b?.bodyPadding, t),
       spacing: lerpDouble(a?.spacing, b?.spacing, t),
       shape: ShapeBorder.lerp(a?.shape, b?.shape, t),

@@ -1,7 +1,6 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'solana_wallet_text_overflow.dart';
 import '../../solana_wallet_provider.dart';
@@ -20,7 +19,6 @@ class SolanaWalletButton extends StatefulWidget {
     this.onLongPress,
     this.onHover,
     this.onFocusChange,
-    this.style,
     this.focusNode,
     this.autofocus = false,
     this.clipBehavior = Clip.none,
@@ -28,13 +26,20 @@ class SolanaWalletButton extends StatefulWidget {
     this.hostAuthority,
     this.onConnect,
     this.onConnectError,
+    this.connectStyle,
+    this.connectBuilder,
+    this.connectChild,
     this.onDisconnect,
     this.onDisconnectError,
-    this.builder,
-    this.child,
+    this.disconnectStyle,
+    this.disconnectBuilder,
+    this.disconnectChild,
   }): assert(
-    builder == null || child == null,
-    '[SolanaWalletButton] can define [builder] or [child], but not both.'
+    connectBuilder == null || connectChild == null,
+    '[SolanaWalletButton] can define [connectBuilder] or [connectChild], but not both.'
+  ), assert(
+    disconnectBuilder == null || disconnectChild == null,
+    '[SolanaWalletButton] can define [disconnectBuilder] or [disconnectChild], but not both.'
   );
 
   /// Called when the button is tapped or otherwise activated.
@@ -57,9 +62,6 @@ class SolanaWalletButton extends StatefulWidget {
   ///
   /// Called with true if this widget's node gains focus, and false if it loses focus.
   final ValueChanged<bool>? onFocusChange;
-
-  /// Customizes this button's appearance.
-  final ButtonStyle? style;
 
   /// {@macro flutter.material.Material.clipBehavior}
   ///
@@ -84,21 +86,37 @@ class SolanaWalletButton extends StatefulWidget {
   /// Called when the application attempts to connect to a wallet and fails.
   final void Function(Object error, [StackTrace? stackTrace])? onConnectError;
 
+  /// The button's style when the application is connected to a wallet.
+  final ButtonStyle? connectStyle;
+
+  /// Builds the button's content when the application is connected to a wallet.
+  /// 
+  /// If [connectBuilder] is provided [connectChild] must be null.
+  final Widget Function(BuildContext context, Account account)? connectBuilder;
+
+  /// The button's content when the application is connected to a wallet.
+  /// 
+  /// If [connectChild] is provided [connectBuilder] must be null.
+  final Widget? connectChild;
+
   /// Called when the application disconnects from a wallet.
   final void Function(DeauthorizeResult result)? onDisconnect;
 
   /// Called when the application attempts to disconnect from a wallet and fails.
   final void Function(Object error, [StackTrace? stackTrace])? onDisconnectError;
 
-  /// Builds the button's child.
-  /// 
-  /// If [builder] is provided [child] must be null.
-  final Widget Function(Account? account)? builder;
+  /// The button's style when the application is not connected to a wallet.
+  final ButtonStyle? disconnectStyle;
 
-  /// The button's content.
+  /// Builds the button's content when the application is not connected to a wallet.
   /// 
-  /// If [child] is provided [builder] must be null.
-  final Widget? child;
+  /// If [disconnectBuilder] is provided [disconnectChild] must be null.
+  final Widget Function(BuildContext context)? disconnectBuilder;
+
+  /// The button's content when the application is not connected to a wallet.
+  /// 
+  /// If [disconnectChild] is provided [disconnectBuilder] must be null.
+  final Widget? disconnectChild;
 
   @override
   State<SolanaWalletButton> createState() => _SolanaWalletButtonState();
@@ -110,82 +128,21 @@ class SolanaWalletButton extends StatefulWidget {
 
 class _SolanaWalletButtonState extends State<SolanaWalletButton> {
 
-  /// Creates a callback function that resolves [completer] with the provided value.
-  void Function(T?) _onCompleteHandler<T>(
-    final Completer<T?> completer,
-    final void Function(T value)? onComplete,
-  ) {
-    return (final T? value) {
-      if (!completer.isCompleted) {
-        completer.complete(value);
-        if (value != null) {
-          onComplete?.call(value);
-        }
-      }
-    };
-  }
-
-  /// Creates a callback function that resolves [completer] with the provided error.
-  void Function(Object, [StackTrace?]) _onCompleteErrorHandler<T>(
-    final Completer<T> completer,
-    final void Function(Object error, [StackTrace? stackTrace])? onCompleteError,
-  ) {
-    return (final Object error, [final StackTrace? stackTrace]) {
-      if (!completer.isCompleted) {
-        completer.completeError(error, stackTrace);
-        onCompleteError?.call(error, stackTrace);
-      }
-    };
-  }
-
-  /// Connects the application to a Solana wallet.
-  Future <AuthorizeResult> _onConnect(final SolanaWalletProvider provider) {
-    return provider.open(
-      context: context, 
-      builder: (
-        final BuildContext context, 
-        final Completer<AuthorizeResult> completer,
-      ) => SolanaWalletConnectCard(
-        apps: [
-          SolanaWalletAppInfo.phantom,
-          SolanaWalletAppInfo.solflare,
-        ], 
-        adapter: provider.adapter,
-        onComplete: _onCompleteHandler(completer, widget.onConnect),
-        onCompleteError: _onCompleteErrorHandler(completer, widget.onConnectError),
-        hostAuthority: widget.hostAuthority,
-      ),
-    );
-  }
-  
-  /// Disconnects the application from a Solana wallet.
-  Future<DeauthorizeResult> _onDisconnect(final SolanaWalletProvider provider) {
-    return provider.open(
-      context: context, 
-      builder: (
-        final BuildContext context, 
-        final Completer<DeauthorizeResult> completer,
-      ) => SolanaWalletDisconnectCard(
-        accounts: provider.walletAccounts,
-        selectedAccount: provider.connectedAccount,
-        onComplete: _onCompleteHandler(completer, widget.onDisconnect),
-        onCompleteError: _onCompleteErrorHandler(completer, widget.onDisconnectError),
-      ),
-    );
-  }
-
   /// Creates an `onPressed` callback function for [account].
   VoidCallback _onPressed(final Account? account, final SolanaWalletProvider provider) {
     return account != null
-      ? () => _onDisconnect(provider)
-      : () => _onConnect(provider);
+      ? () => provider.disconnect(context)
+      : () => provider.connect(context);
   }
 
-  /// Builds the button's child widget for [account].
-  Widget _buildChild(final Account? account) {
-    return account != null 
-      ? SolanaWalletTextOverflow(text: account.addressBase58)
-      : const Text('Connect');
+  /// Builds the button's child widget when connected to [account].
+  Widget _connectBuilder(final BuildContext context, final Account account) {
+    return SolanaWalletTextOverflow(text: account.addressBase58);
+  }
+
+  /// Builds the button's child widget when disconnected.
+  Widget _disconnectBuilder(final BuildContext context) {
+    return const Text('Connect Wallet');
   }
 
   @override
@@ -197,14 +154,18 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
       onLongPress: widget.onLongPress,
       onHover: widget.onHover,
       onFocusChange: widget.onFocusChange,
-      style: widget.style,
+      style: (connectedAccount != null
+        ? widget.connectStyle
+        : widget.disconnectStyle) ?? TextButton.styleFrom(),
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       clipBehavior: widget.clipBehavior,
       statesController: widget.statesController,
-      child: widget.child 
-        ?? widget.builder?.call(connectedAccount) 
-        ?? _buildChild(connectedAccount),
+      child: connectedAccount != null
+        ? widget.connectBuilder?.call(context, connectedAccount) 
+          ?? _connectBuilder(context, connectedAccount)
+        : widget.disconnectBuilder?.call(context) 
+          ?? _disconnectBuilder(context),
     );
   }
 }

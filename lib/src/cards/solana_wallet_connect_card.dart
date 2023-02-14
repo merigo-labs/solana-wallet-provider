@@ -76,15 +76,15 @@ class _SolanaWalletConnectCardState extends State<SolanaWalletConnectCard> {
 
   /// Simulate a connect request that results in a [SolanaWalletAdapterException] with error code 
   /// [SolanaWalletAdapterExceptionCode.walletNotFound].
-  Future<AuthorizeResult?> _simulateErrorRequest() {
-    return Future.delayed(
-      const Duration(seconds: 1),
-      () => Future.error(const SolanaWalletAdapterException(
-        'Simulated request exception - wallet not found.',
-        code: SolanaWalletAdapterExceptionCode.walletNotFound,
-      )),
-    );
-  }
+  // Future<AuthorizeResult?> _simulateErrorRequest() {
+  //   return Future.delayed(
+  //     const Duration(seconds: 1),
+  //     () => Future.error(const SolanaWalletAdapterException(
+  //       'Simulated request exception - wallet not found.',
+  //       code: SolanaWalletAdapterExceptionCode.walletNotFound,
+  //     )),
+  //   );
+  // }
 
   /// [SolanaWalletMethodBuilder.method].
   Future<AuthorizeResult?> _method([final dynamic value]) => _future;

@@ -2,7 +2,6 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import 'solana_wallet_list_view.dart';
 import '../../solana_wallet_provider.dart';
 import '../../src/layouts/solana_wallet_grid.dart';
 

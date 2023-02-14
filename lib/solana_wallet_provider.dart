@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
+import 'package:solana_wallet_provider/src/themes/solana_wallet_theme_extension.dart';
 import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
 import 'package:solana_web3/rpc_models/blockhash_cache.dart';
@@ -12,9 +13,12 @@ import 'package:solana_web3/rpc_models/blockhash_with_expiry_block_height.dart';
 import 'package:solana_web3/rpc_models/signature_notification.dart';
 import 'package:solana_web3/solana_web3.dart';
 import 'package:solana_web3/types/commitment.dart';
+import 'src/cards/solana_wallet_connect_card.dart';
+import 'src/cards/solana_wallet_disconnect_card.dart';
 import 'src/exceptions/solana_wallet_provider_exception.dart';
 import 'src/exceptions/solana_wallet_provider_exception_code.dart';
 import 'src/models/messages_and_addresses.dart';
+import 'src/models/solana_wallet_app_info.dart';
 import 'src/models/solana_wallet_method_state.dart';
 import 'src/models/transaction_with_signers.dart';
 import 'src/models/transactions_and_signers.dart';
@@ -48,6 +52,9 @@ export 'src/cards/solana_wallet_connect_card.dart';
 // src/exceptions/
 export 'src/exceptions/solana_wallet_provider_exception_code.dart';
 export 'src/exceptions/solana_wallet_provider_exception.dart';
+
+// src/extensions/
+export 'src/extensions/account.dart';
 
 // src/models/
 export 'src/models/messages_and_addresses.dart';
@@ -267,13 +274,11 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     return _onMethodCancelled(completer);
   };
 
-  /// Creates a [SolanaWalletCard] for [controller.state] by invoking the corresponding builder 
-  /// method and setting it to [SolanaWalletCard.body].
-  Widget stateCard<T, U>(
+  /// Creates a [Widget] by invoking the corresponding builder method of [controller.state].
+  Widget stateWidget<T, U>(
     final BuildContext context, 
     final AsyncSnapshot<T> snapshot, 
     final SolanaWalletMethodController<U> controller, {
-    final Widget? title,
     final Widget Function(BuildContext)? noneBuilder,
     final Widget Function(BuildContext)? progressBuilder,
     final Widget Function(BuildContext, T?)? successBuilder,
@@ -281,32 +286,36 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   }) {
     switch (controller.state) {
       case SolanaWalletMethodState.none:
-        return SolanaWalletCard(
-          body: noneBuilder?.call(context)
-            ?? SolanaWalletMethodView.none(),
-        );
+        return noneBuilder?.call(context)
+          ?? SolanaWalletCard(
+              body: SolanaWalletMethodView.none(),
+            );
       case SolanaWalletMethodState.progress:
-        return SolanaWalletCard(
-          title: title,
-          body: progressBuilder?.call(context)
-            ?? SolanaWalletMethodView.progress('Waiting for wallet response.'),
-        );
+        return progressBuilder?.call(context)
+          ?? SolanaWalletCard(
+              body: SolanaWalletMethodView.progress(
+                'Waiting for wallet response.',
+              ),
+            );
       case SolanaWalletMethodState.success:
-        return SolanaWalletCard(
-          body: successBuilder?.call(context, snapshot.data)
-            ?? SolanaWalletMethodView.success('Success.'),
-        );
+        return successBuilder?.call(context, snapshot.data)
+          ?? SolanaWalletCard(
+              body: SolanaWalletMethodView.success(
+                'Success.',
+              ),
+            );
       case SolanaWalletMethodState.error:
-        return SolanaWalletCard(
-          body: errorBuilder?.call(context, snapshot.error)
-            ?? SolanaWalletMethodView.error(snapshot.error),
-        );
+        return errorBuilder?.call(context, snapshot.error)
+          ?? SolanaWalletCard(
+              body: SolanaWalletMethodView.error(
+                snapshot.error,
+              ),
+            );
     }
   }
 
-  /// Creates a builder method that calls [stateCard].
-  MethodBuilder<T, U> stateCardBuilder<T, U>({
-    final Widget? title,
+  /// Creates a builder method that calls [stateWidget].
+  MethodBuilder<T, U> stateWidgetBuilder<T, U>({
     final Widget Function(BuildContext)? noneBuilder,
     final Widget Function(BuildContext)? progressBuilder,
     final Widget Function(BuildContext, T?)? successBuilder,
@@ -315,15 +324,51 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, 
     final AsyncSnapshot<T> snapshot, 
     final SolanaWalletMethodController<U> controller,
-  ) => stateCard(
+  ) => stateWidget(
     context, 
     snapshot, 
     controller,
-    title: title,
     noneBuilder: noneBuilder,
     progressBuilder: progressBuilder,
     successBuilder: successBuilder,
     errorBuilder: errorBuilder,
+  );
+
+  /// Presents a modal bottom sheet with a [SolanaWalletConnectCard].
+  /// 
+  /// The [apps] are given as download options if a Solana wallet cannot be found on the device.
+  Future <AuthorizeResult> connect(
+    final BuildContext context, {
+    final List<SolanaWalletAppInfo> apps = const [],
+    final String? hostAuthority,
+  }) => open(
+    context: context, 
+    builder: (
+      final BuildContext context, 
+      final Completer<AuthorizeResult> completer,
+    ) => SolanaWalletConnectCard(
+      apps: apps, 
+      adapter: adapter,
+      hostAuthority: hostAuthority,
+      onComplete: _onMethodCompleteHandler(completer),
+      onCompleteError: _onMethodCompleteErrorHandler(completer),
+    ),
+  );
+  
+  /// Presents a modal bottom sheet with a [SolanaWalletDisconnectCard].
+  Future<DeauthorizeResult> disconnect(
+    final BuildContext context,
+  ) => open(
+    context: context, 
+    builder: (
+      final BuildContext context, 
+      final Completer<DeauthorizeResult> completer,
+    ) => SolanaWalletDisconnectCard(
+      accounts: walletAccounts,
+      selectedAccount: connectedAccount,
+      onComplete: _onMethodCompleteHandler(completer),
+      onCompleteError: _onMethodCompleteErrorHandler(completer),
+    ),
   );
 
   /// Presents a modal bottom sheet with the contents returned by [builder] for a non-privileged 
@@ -353,14 +398,29 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   /// {@macro solana_wallet_provider.dismissed_exception}
   Future<AuthorizeResult> authorize(
     final BuildContext context, {
-    final MethodBuilder<AuthorizeResult, dynamic>? builder
+    final MethodBuilder<AuthorizeResult, dynamic>? builder,
+    final Widget? title,
   }) => nonPrivilegedMethod(
     context, 
     method: adapter.authorize,
-    builder: builder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Waiting for wallet to connect.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Wallet connected.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to connect.'),
+    builder: builder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: title,
+        body: SolanaWalletMethodView.progress(
+          'Waiting for wallet to connect.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Wallet connected.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to connect.',
+        ),
+      ),
     ),
   );
   
@@ -372,13 +432,28 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<DeauthorizeResult> deauthorize(
     final BuildContext context, {
     final MethodBuilder<DeauthorizeResult, dynamic>? builder,
+    final Widget? title,
   }) => nonPrivilegedMethod(
     context, 
     method: adapter.deauthorize,
-    builder: builder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Waiting for wallet to connect.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Wallet disconnected.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to disconnect.'),
+    builder: builder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: title,
+        body: SolanaWalletMethodView.progress(
+          'Waiting for wallet to connect.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Wallet disconnected.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to disconnect.',
+        ),
+      ),
     ),
   );
 
@@ -390,13 +465,28 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<ReauthorizeResult> reauthorize(
     final BuildContext context, {
     final MethodBuilder<ReauthorizeResult, dynamic>? builder,
+    final Widget? title,
   }) => nonPrivilegedMethod(
     context, 
     method: adapter.reauthorize,
-    builder: builder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Waiting for wallet to connect.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Wallet connected.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to connect.'),
+    builder: builder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: title,
+        body: SolanaWalletMethodView.progress(
+          'Waiting for wallet to connect.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Wallet connected.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to connect.',
+        ),
+      ),
     ),
   );
 
@@ -408,13 +498,28 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<AuthorizeResult> reauthorizeOrAuthorize(
     final BuildContext context, {
     final MethodBuilder<AuthorizeResult, dynamic>? builder,
+    final Widget? title,
   }) => nonPrivilegedMethod(
     context, 
     method: adapter.reauthorize,
-    builder: builder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Waiting for wallet to connect.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Wallet connected.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to connect.'),
+    builder: builder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: title,
+        body: SolanaWalletMethodView.progress(
+          'Waiting for wallet to connect.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Wallet connected.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to connect.',
+        ),
+      ),
     ),
   );
 
@@ -426,13 +531,28 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<GetCapabilitiesResult> getCapabilities(
     final BuildContext context, {
     final MethodBuilder<GetCapabilitiesResult, dynamic>? builder,
+    final Widget? title,
   }) => nonPrivilegedMethod(
     context, 
     method: adapter.getCapabilities,
-    builder: builder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Requesting wallet capabilities.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Success.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed.'),
+    builder: builder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: title,
+        body: SolanaWalletMethodView.progress(
+          'Requesting wallet capabilities.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Success.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed.',
+        ),
+      ),
     ),
   );
 
@@ -454,7 +574,7 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
         final U? value = snapshot.data;
         if (value != null) {
           return SolanaWalletMethodBuilder<T, U>(
-            value: snapshot.data!,
+            value: value,
             method: method, 
             builder: _privilegedInnerBuilder(
               reviewBuilder: reviewBuilder,
@@ -465,13 +585,14 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
             auto: reviewBuilder == null,
           );
         }
-        print('[SolanaWalletProvider] [WARNING] privileged builder returned null value.');
+        throw Exception('[SolanaWalletProvider] privileged builder returned null value.');
       }
 
       return valueBuilder(context, snapshot, controller);
     };
   }
 
+  /// Creates a builder method that generates a widget for a privileged method call.
   MethodBuilder<T, U> _privilegedInnerBuilder<T, U>({
     required final MethodBuilder<T, U>? reviewBuilder,
     required final MethodBuilder<T, U> methodBuilder,
@@ -491,11 +612,13 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     };
   }
   
+  /// Builds a 'review order' card.
   Widget _privilegedReviewBuilder<T, U>(
       final BuildContext context, 
       final AsyncSnapshot<T> snapshot, 
       final SolanaWalletMethodController<U> controller,
   ) {
+    final SolanaWalletThemeExtension? themeExt = SolanaWalletThemeExtension.of(context);
     return SolanaWalletCard(
       body: SolanaWalletListView(
         children: [
@@ -504,10 +627,12 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
             children: [
               TextButton(
                 onPressed: () => SolanaWalletProvider.close(context), 
+                style: themeExt?.secondaryButtonStyle,
                 child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () => controller.call(), 
+                style: themeExt?.primaryButtonStyle,
                 child: const Text('Continue'),
               ),
             ],
@@ -552,6 +677,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignTransactionsResult> signTransactions(
     final BuildContext context,
     final Future<List<Transaction>> transactions, {
+    final Widget? valueTitle,
+    final Widget? methodTitle,
     final MethodBuilder<List<Transaction>, dynamic>? valueBuilder,
     final MethodBuilder<SignTransactionsResult, List<Transaction>>? reviewBuilder,
     final MethodBuilder<SignTransactionsResult, List<Transaction>>? methodBuilder,
@@ -559,15 +686,39 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     context, 
     value: transactions, 
     method: _signTransactionsHandler, 
-    valueBuilder: valueBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Processing transactions.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to process transactions.'),
+    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: valueTitle,
+        body: SolanaWalletMethodView.progress(
+          'Processing transactions.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to process transactions.',
+        ),
+      ),
     ),
     reviewBuilder: reviewBuilder,
-    methodBuilder: methodBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Signing transactions.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Signing complete.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to sign transactions.'),
+    methodBuilder: methodBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: methodTitle,
+        body: SolanaWalletMethodView.progress(
+          'Signing transactions.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Signing complete.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to sign transactions.',
+        ),
+      ),
     ),
   );
   
@@ -579,6 +730,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignTransactionsResult> signTransactionsWithSigners(
     final BuildContext context,
     final Future<List<TransactionWithSigners>> transactions, {
+    final Widget? valueTitle,
+    final Widget? methodTitle,
     final MethodBuilder<List<TransactionWithSigners>, dynamic>? valueBuilder,
     final MethodBuilder<SignTransactionsResult, List<TransactionWithSigners>>? reviewBuilder,
     final MethodBuilder<SignTransactionsResult, List<TransactionWithSigners>>? methodBuilder,
@@ -586,27 +739,54 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     context, 
     value: transactions, 
     method: _signTransactionsWithSignersHandler, 
-    valueBuilder: valueBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Processing transactions.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to process transactions.'),
+    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: valueTitle,
+        body: SolanaWalletMethodView.progress(
+          'Processing transactions.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to process transactions.',
+        ),
+      ),
     ),
     reviewBuilder: reviewBuilder,
-    methodBuilder: methodBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Signing transactions.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Signing complete.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to sign transactions.'),
+    methodBuilder: methodBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: methodTitle,
+        body: SolanaWalletMethodView.progress(
+          'Signing transactions.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Signing complete.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to sign transactions.',
+        ),
+      ),
     ),
   );
 
+  /// Builds a widget for a successful sign and send transactions result.
   Widget _signAndSendTransactionsResultBuilder(
     final BuildContext context,
     final SignAndSendTransactionsResult? data,
   ) {
     final int length = data != null ? data.signatures.length : 0;
-    return SolanaWalletSignAndSendTransactionsResultView(
-      result: data, 
-      cluster: connection.cluster,
-      message: 'Transaction${length != 1 ? 's' : ''} confirmed.',
+    return SolanaWalletCard(
+      body: SolanaWalletSignAndSendTransactionsResultView(
+        result: data, 
+        cluster: connection.cluster,
+        message: 'Transaction${length != 1 ? 's' : ''} confirmed.',
+      ),
     );
   }
 
@@ -621,6 +801,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final Commitment? commitment = Commitment.confirmed,
     final SignAndSendTransactionsConfig? config,
     final bool skipErrorResponse = false,
+    final Widget? valueTitle,
+    final Widget? methodTitle,
     final MethodBuilder<List<Transaction>, dynamic>? valueBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<Transaction>>? reviewBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<Transaction>>? methodBuilder,
@@ -633,15 +815,35 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
       config: config,
       skipErrorResponse: skipErrorResponse,
     ), 
-    valueBuilder: valueBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Processing transactions.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to process transactions.'),
+    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: valueTitle,
+        body: SolanaWalletMethodView.progress(
+          'Processing transactions.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to process transactions.',
+        ),
+      ),
     ),
     reviewBuilder: reviewBuilder,
-    methodBuilder: methodBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Sending transactions to the network.'),
+    methodBuilder: methodBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: methodTitle,
+        body: SolanaWalletMethodView.progress(
+          'Signing transactions to the network.',
+        ),
+      ),
       successBuilder: _signAndSendTransactionsResultBuilder,
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to sign and send transactions.'),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to sign and send transactions.',
+        ),
+      ),
     ),
   );
 
@@ -656,6 +858,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final Commitment? commitment = Commitment.confirmed,
     final SignAndSendTransactionsConfig? config,
     final bool skipErrorResponse = false,
+    final Widget? valueTitle,
+    final Widget? methodTitle,
     final MethodBuilder<List<TransactionWithSigners>, dynamic>? valueBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<TransactionWithSigners>>? reviewBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<TransactionWithSigners>>? methodBuilder,
@@ -669,15 +873,35 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
         config: config,
         skipErrorResponse: skipErrorResponse,
       ), 
-    valueBuilder: valueBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Processing transactions.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to process transactions.'),
+    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: valueTitle,
+        body: SolanaWalletMethodView.progress(
+          'Processing transactions.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to process transactions.',
+        ),
+      ),
     ),
     reviewBuilder: reviewBuilder,
-    methodBuilder: methodBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Sending transactions to the network.'),
+    methodBuilder: methodBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: methodTitle,
+        body: SolanaWalletMethodView.progress(
+          'Signing transactions to the network.',
+        ),
+      ),
       successBuilder: _signAndSendTransactionsResultBuilder,
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to sign and send transactions.'),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to sign and send transactions.',
+        ),
+      ),
     ),
   );
 
@@ -689,6 +913,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignMessagesResult> signMessages(
     final BuildContext context,
     final Future<MessagesAndAddresses> messages, {
+    final Widget? valueTitle,
+    final Widget? methodTitle,
     final MethodBuilder<MessagesAndAddresses, dynamic>? valueBuilder,
     final MethodBuilder<SignMessagesResult, MessagesAndAddresses>? reviewBuilder,
     final MethodBuilder<SignMessagesResult, MessagesAndAddresses>? methodBuilder,
@@ -696,15 +922,39 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     context, 
     value: messages, 
     method: _signMessagesHandler, 
-    valueBuilder: valueBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Processing messages.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to process messages.'),
+    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: valueTitle,
+        body: SolanaWalletMethodView.progress(
+          'Processing messages.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to process messages.',
+        ),
+      ),
     ),
     reviewBuilder: reviewBuilder,
-    methodBuilder: methodBuilder ?? stateCardBuilder(
-      progressBuilder: (_) => SolanaWalletMethodView.progress('Signing messages.'),
-      successBuilder: (_, __) => SolanaWalletMethodView.success('Signing complete.'),
-      errorBuilder: (_, error) => SolanaWalletMethodView.error(error, 'Failed to sign messages.'),
+    methodBuilder: methodBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        title: methodTitle,
+        body: SolanaWalletMethodView.progress(
+          'Signing messages.',
+        ),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletMethodView.success(
+          'Signing complete.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletMethodView.error(
+          error,
+          'Failed to sign messages.',
+        ),
+      ),
     ),
   );
     

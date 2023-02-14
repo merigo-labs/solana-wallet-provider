@@ -2,9 +2,11 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
+import 'package:solana_web3/solana_web3.dart' show SolanaException;
 import 'solana_wallet_list_view.dart';
 import '../layouts/solana_wallet_grid.dart';
-import '../../solana_wallet_provider.dart';
+import '../themes/solana_wallet_method_view_theme.dart';
+import '../themes/solana_wallet_theme_extension.dart';
 import '../../src/widgets/solana_wallet_icon_painter.dart';
 
 

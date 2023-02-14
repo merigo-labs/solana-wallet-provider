@@ -5,6 +5,7 @@ import 'dart:convert' show base64;
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart' 
   show Cluster, SignAndSendTransactionsResult, SolanaWalletAdapter, SolanaWalletAdapterPlatform;
+import 'package:solana_wallet_provider/src/layouts/solana_wallet_grid.dart';
 import 'package:solana_wallet_provider/src/views/solana_wallet_list_view.dart';
 import 'package:solana_web3/solana_web3.dart' show base58;
 import '../themes/solana_wallet_theme_extension.dart';
@@ -65,6 +66,7 @@ class _SolanaWalletSignAndSendTransactionsResultViewState
   /// Builds a view to display the result.
   Widget _build(final List<String?> signatures) {
     return SolanaWalletListView(
+      spacing: SolanaWalletGrid.x3,
       children: [
         SolanaWalletMethodView.success(widget.message),
         TextButton(

@@ -1,3 +1,9 @@
+## 0.0.3
+
+* Extend card theme.
+* Change wallet button builders.
+* Change default modal builders.
+
 ## 0.0.2+1
 
 * Remove debugging code.
