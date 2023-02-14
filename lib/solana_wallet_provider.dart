@@ -5,7 +5,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
-import 'package:solana_wallet_provider/src/themes/solana_wallet_theme_extension.dart';
 import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
 import 'package:solana_web3/rpc_models/blockhash_cache.dart';
@@ -17,6 +16,7 @@ import 'src/cards/solana_wallet_connect_card.dart';
 import 'src/cards/solana_wallet_disconnect_card.dart';
 import 'src/exceptions/solana_wallet_provider_exception.dart';
 import 'src/exceptions/solana_wallet_provider_exception_code.dart';
+import 'src/models/dismiss_mode.dart';
 import 'src/models/messages_and_addresses.dart';
 import 'src/models/solana_wallet_app_info.dart';
 import 'src/models/solana_wallet_method_state.dart';
@@ -25,6 +25,7 @@ import 'src/models/transactions_and_signers.dart';
 import 'src/views/solana_wallet_method_view.dart';
 import 'src/cards/solana_wallet_card.dart';
 import 'src/solana_wallet_constants.dart';
+import 'src/themes/solana_wallet_theme_extension.dart';
 import 'src/views/solana_wallet_list_view.dart';
 import 'src/widgets/solana_wallet_method_builder.dart';
 import 'src/widgets/solana_wallet_sign_and_send_transactions_result_view.dart';
@@ -57,6 +58,7 @@ export 'src/exceptions/solana_wallet_provider_exception.dart';
 export 'src/extensions/account.dart';
 
 // src/models/
+export 'src/models/dismiss_mode.dart';
 export 'src/models/messages_and_addresses.dart';
 export 'src/models/solana_wallet_app_info.dart';
 export 'src/models/solana_wallet_method_state.dart';
@@ -203,6 +205,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
 
   /// Opens the provider's modal bottom sheet with the contents returned by [builder].
   /// 
+  /// The modal will be dismissed in accordance with the provided [dismissMode].
+  /// 
   /// {@template solana_wallet_provider.dismissed_exception}
   /// Throws a [SolanaWalletProviderException] with code 
   /// [SolanaWalletProviderExceptionCode.dismissed] if the modal closes before completing the task.
@@ -210,8 +214,14 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<T> open<T>({
     required final BuildContext context, 
     required final Widget Function(BuildContext, Completer<T>) builder,
+    final DismissMode? dismissMode,
   }) {
     final Completer<T> completer = Completer();
+    _dismissModal(
+      context, 
+      future: completer.future, 
+      mode: dismissMode,
+    );
     showModalBottomSheet(
       context: context, 
       builder: (final BuildContext context) => builder(context, completer),
@@ -221,6 +231,28 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ).whenComplete(_onMethodCancelledHandler(completer))
      .ignore();
     return completer.future;
+  }
+
+  /// Dismiss the modal bottom sheet created for [future] in accordance with [mode].
+  void _dismissModal<T>(
+    final BuildContext context, {
+    required final Future<T> future,
+    required final DismissMode? mode,
+  }) {
+    switch(mode) {
+      case null:
+      case DismissMode.none:
+        break;
+      case DismissMode.success:
+        future.then((_) { close(context); });
+        break;
+      case DismissMode.error:
+        future.catchError((_) { close(context); });
+        break;
+      case DismissMode.done:
+        future.whenComplete(() { close(context); });
+        break;
+    }
   }
 
   /// Resolves [completer] with [value].
@@ -341,8 +373,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     final List<SolanaWalletAppInfo> apps = const [],
     final String? hostAuthority,
+    final DismissMode? dismissMode,
   }) => open(
     context: context, 
+    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<AuthorizeResult> completer,
@@ -357,9 +391,11 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   
   /// Presents a modal bottom sheet with a [SolanaWalletDisconnectCard].
   Future<DeauthorizeResult> disconnect(
-    final BuildContext context,
-  ) => open(
+    final BuildContext context, {
+    final DismissMode? dismissMode,
+  }) => open(
     context: context, 
+    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<DeauthorizeResult> completer,
@@ -377,8 +413,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     required final Future<T> Function() method,
     required final MethodBuilder<T, dynamic> builder,
+    final DismissMode? dismissMode,
   }) => open(
     context: context, 
+    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<T> completer,
@@ -400,8 +438,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     final MethodBuilder<AuthorizeResult, dynamic>? builder,
     final Widget? title,
+    final DismissMode? dismissMode,
   }) => nonPrivilegedMethod(
     context, 
+    dismissMode: dismissMode,
     method: adapter.authorize,
     builder: builder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
@@ -433,8 +473,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     final MethodBuilder<DeauthorizeResult, dynamic>? builder,
     final Widget? title,
+    final DismissMode? dismissMode,
   }) => nonPrivilegedMethod(
     context, 
+    dismissMode: dismissMode,
     method: adapter.deauthorize,
     builder: builder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
@@ -466,8 +508,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     final MethodBuilder<ReauthorizeResult, dynamic>? builder,
     final Widget? title,
+    final DismissMode? dismissMode,
   }) => nonPrivilegedMethod(
     context, 
+    dismissMode: dismissMode,
     method: adapter.reauthorize,
     builder: builder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
@@ -499,8 +543,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     final MethodBuilder<AuthorizeResult, dynamic>? builder,
     final Widget? title,
+    final DismissMode? dismissMode,
   }) => nonPrivilegedMethod(
     context, 
+    dismissMode: dismissMode,
     method: adapter.reauthorize,
     builder: builder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
@@ -532,8 +578,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     final MethodBuilder<GetCapabilitiesResult, dynamic>? builder,
     final Widget? title,
+    final DismissMode? dismissMode,
   }) => nonPrivilegedMethod(
     context, 
+    dismissMode: dismissMode,
     method: adapter.getCapabilities,
     builder: builder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
@@ -650,8 +698,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     required final MethodBuilder<U, dynamic> valueBuilder,
     required final MethodBuilder<T, U>? reviewBuilder,
     required final MethodBuilder<T, U> methodBuilder,
+    final DismissMode? dismissMode,
   }) => open(
     context: context, 
+    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<T> completer,
@@ -682,8 +732,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final MethodBuilder<List<Transaction>, dynamic>? valueBuilder,
     final MethodBuilder<SignTransactionsResult, List<Transaction>>? reviewBuilder,
     final MethodBuilder<SignTransactionsResult, List<Transaction>>? methodBuilder,
+    final DismissMode? dismissMode,
   }) => privilegedMethod(
     context, 
+    dismissMode: dismissMode,
     value: transactions, 
     method: _signTransactionsHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
@@ -735,8 +787,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final MethodBuilder<List<TransactionWithSigners>, dynamic>? valueBuilder,
     final MethodBuilder<SignTransactionsResult, List<TransactionWithSigners>>? reviewBuilder,
     final MethodBuilder<SignTransactionsResult, List<TransactionWithSigners>>? methodBuilder,
+    final DismissMode? dismissMode,
   }) => privilegedMethod(
     context, 
+    dismissMode: dismissMode,
     value: transactions, 
     method: _signTransactionsWithSignersHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
@@ -806,8 +860,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final MethodBuilder<List<Transaction>, dynamic>? valueBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<Transaction>>? reviewBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<Transaction>>? methodBuilder,
+    final DismissMode? dismissMode,
   }) => privilegedMethod(
     context, 
+    dismissMode: dismissMode,
     value: transactions, 
     method: (final List<Transaction> transactions) => _signAndSendTransactionsPolyfill(
       transactions,
@@ -863,8 +919,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final MethodBuilder<List<TransactionWithSigners>, dynamic>? valueBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<TransactionWithSigners>>? reviewBuilder,
     final MethodBuilder<SignAndSendTransactionsResult, List<TransactionWithSigners>>? methodBuilder,
+    final DismissMode? dismissMode,
   }) => privilegedMethod(
     context, 
+    dismissMode: dismissMode,
     value: transactions, 
     method: (final List<TransactionWithSigners> transactions) 
       => _signAndSendTransactionsWithSignersHandler(
@@ -918,8 +976,10 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final MethodBuilder<MessagesAndAddresses, dynamic>? valueBuilder,
     final MethodBuilder<SignMessagesResult, MessagesAndAddresses>? reviewBuilder,
     final MethodBuilder<SignMessagesResult, MessagesAndAddresses>? methodBuilder,
+    final DismissMode? dismissMode,
   }) => privilegedMethod(
     context, 
+    dismissMode: dismissMode,
     value: messages, 
     method: _signMessagesHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(

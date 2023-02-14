@@ -29,11 +29,13 @@ class SolanaWalletButton extends StatefulWidget {
     this.connectStyle,
     this.connectBuilder,
     this.connectChild,
+    this.connectDismissMode,
     this.onDisconnect,
     this.onDisconnectError,
     this.disconnectStyle,
     this.disconnectBuilder,
     this.disconnectChild,
+    this.disconnectDismissMode,
   }): assert(
     connectBuilder == null || connectChild == null,
     '[SolanaWalletButton] can define [connectBuilder] or [connectChild], but not both.'
@@ -99,6 +101,9 @@ class SolanaWalletButton extends StatefulWidget {
   /// If [connectChild] is provided [connectBuilder] must be null.
   final Widget? connectChild;
 
+  /// The modal bottom sheet dismiss mode when connecting.
+  final DismissMode? connectDismissMode;
+
   /// Called when the application disconnects from a wallet.
   final void Function(DeauthorizeResult result)? onDisconnect;
 
@@ -118,6 +123,9 @@ class SolanaWalletButton extends StatefulWidget {
   /// If [disconnectChild] is provided [disconnectBuilder] must be null.
   final Widget? disconnectChild;
 
+  /// The modal bottom sheet dismiss mode when disconnecting.
+  final DismissMode? disconnectDismissMode;
+
   @override
   State<SolanaWalletButton> createState() => _SolanaWalletButtonState();
 }
@@ -131,8 +139,19 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
   /// Creates an `onPressed` callback function for [account].
   VoidCallback _onPressed(final Account? account, final SolanaWalletProvider provider) {
     return account != null
-      ? () => provider.disconnect(context)
-      : () => provider.connect(context);
+      ? () => provider.disconnect(
+          context,
+          dismissMode: widget.disconnectDismissMode,
+        )
+      : () => provider.connect(
+          context,
+          apps: [
+            SolanaWalletAppInfo.phantom,
+            SolanaWalletAppInfo.solflare,
+          ],
+          hostAuthority: widget.hostAuthority,
+          dismissMode: widget.connectDismissMode,
+        );
   }
 
   /// Builds the button's child widget when connected to [account].

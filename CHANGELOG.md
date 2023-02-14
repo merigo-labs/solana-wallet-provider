@@ -1,3 +1,7 @@
+## 0.0.4
+
+* Add dismiss mode to modal open.
+
 ## 0.0.3+1
 
 * Add example

@@ -1,8 +1,8 @@
-Provides access to [solana_web3](https://pub.dev/packages/solana_web3) and [solana_wallet_adapter](https://pub.dev/packages/solana_wallet_adapter) in the widget tree. The package creates UI wrappers around each [Mobile Wallet Adapter Specification](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html) method.
+Provides access to [solana_web3](https://pub.dev/packages/solana_web3) and [solana_wallet_adapter](https://pub.dev/packages/solana_wallet_adapter) in the widget tree and creates UI wrappers around each [Mobile Wallet Adapter Specification](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html) method.
 
 <br>
 
-<img src="https://github.com/merigo-labs/example-apps/blob/master/docs/images/solana_wallet_provider.gif?raw=true" alt="Sign and Send Transaction" height="400"/>
+<img src="https://github.com/merigo-labs/example-apps/blob/master/docs/images/solana_wallet_provider.gif?raw=true" alt="Sign and Send Transaction" height="600"/>
 <br>
 
 *[Solana Wallet Provider Example App](https://github.com/merigo-labs/example-apps/tree/master/solana_wallet_provider_example)*
@@ -11,7 +11,7 @@ Provides access to [solana_web3](https://pub.dev/packages/solana_web3) and [sola
 
 ## [Dapp Identity Verification](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html#dapp-identity-verification)
 
-Wallet endpoints will use your AppIdentity information to decide whether to extend trust to your dapp.
+Wallet endpoints will use your `AppIdentity` information to decide whether to extend trust to your dapp.
 
 ```dart
 AppIdentity(
@@ -80,7 +80,7 @@ ThemeData(
 ## Convenience Methods and Widgets
 
 - `SolanaWalletButton` - <em>A button widget that toggles authorization of the application with a wallet.</em>
-- `connect` - <em>authorizes the application with an available wallet or present a list of download options.</em>
+- `connect` - <em>authorizes the application with an available wallet or presents a list of download options.</em>
 - `disconnect` - <em>presents the authorized accounts and a disconnect button to deauthorize the application.</em>
 
 <br>
