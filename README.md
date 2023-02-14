@@ -51,7 +51,7 @@ $ ./gradlew app:signingReport
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": { 
         "namespace": "android_app", 
-        "package_name": "<AAPLICATION_ID>",
+        "package_name": "<APPLICATION_ID>",
         "sha256_cert_fingerprints": ["<SHA256_FINGERPRINT>"]
     }
 }]
