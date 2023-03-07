@@ -1,4 +1,4 @@
-Provides access to [solana_web3](https://pub.dev/packages/solana_web3) and [solana_wallet_adapter](https://pub.dev/packages/solana_wallet_adapter) in the widget tree and creates UI wrappers around each [Mobile Wallet Adapter Specification](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html) method.
+Provides access to [solana_web3](https://pub.dev/packages/solana_web3) and [solana_wallet_adapter](https://pub.dev/packages/solana_wallet_adapter) in the widget tree and creates UI wrappers around [Mobile Wallet Adapter Specification](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html) method calls.
 
 <br>
 
@@ -6,6 +6,22 @@ Provides access to [solana_web3](https://pub.dev/packages/solana_web3) and [sola
 <br>
 
 *[Solana Wallet Provider Example App](https://github.com/merigo-labs/example-apps/tree/master/solana_wallet_provider_example)*
+
+<br>
+
+## API
+
+- `connect` - <em>authorizes the application with an available wallet or presents a list of download options.</em>
+- `disconnect` - <em>presents the authorized accounts and a disconnect button to deauthorize the application.</em>
+- `signTransactions` - <em>signs transactions with the authorized account.</em>
+- `signAndSendTransactions` - <em>signs transactions with the authorized account then broadcasts them to the network.</em>
+- `signMessages` - <em>signs messages with the authorized account.</em>
+
+<br>
+
+## Convenience Widget
+
+- `SolanaWalletButton` - <em>A button widget that toggles authorization of the application with a wallet.</em>
 
 <br>
 
@@ -61,7 +77,7 @@ $ ./gradlew app:signingReport
 
 ## Theme
 
-Add `SolanaWalletThemeExtension` as a `ThemeData` extension to set the provider's appearance.
+Add `SolanaWalletThemeExtension` as a `ThemeData` extension to customize the provider's appearance.
 
 ```dart
 ThemeData(
@@ -77,15 +93,7 @@ ThemeData(
 
 <br>
 
-## Convenience Methods and Widgets
-
-- `SolanaWalletButton` - <em>A button widget that toggles authorization of the application with a wallet.</em>
-- `connect` - <em>authorizes the application with an available wallet or presents a list of download options.</em>
-- `disconnect` - <em>presents the authorized accounts and a disconnect button to deauthorize the application.</em>
-
-<br>
-
-## Example: Authorize
+## Example: Connect
 
 Uses the provider to authorize the application with a Solana wallet.
 

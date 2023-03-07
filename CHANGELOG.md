@@ -1,3 +1,7 @@
+## 0.0.5+2
+
+* Update readme + dependencies.
+
 ## 0.0.5+1
 
 * Update example.
