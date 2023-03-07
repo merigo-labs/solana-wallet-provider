@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'solana_wallet_card_theme.dart';
 import 'solana_wallet_qr_code_theme.dart';
-import 'solana_wallet_method_view_theme.dart';
+import 'solana_wallet_state_theme.dart';
 
 
 /// Solana Wallet Theme Extension
@@ -35,8 +35,8 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
   /// Secondary button style.
   final ButtonStyle? secondaryButtonStyle;
   
-  /// The method view styles.
-  final SolanaWalletMethodViewTheme? stateTheme;
+  /// The state view styles.
+  final SolanaWalletStateTheme? stateTheme;
 
   /// Returns the [SolanaWalletThemeExtension] for the provided [context].
   static SolanaWalletThemeExtension? of(final BuildContext context)
@@ -48,7 +48,7 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
     final SolanaWalletQrCodeTheme? qrCodeTheme,
     final ButtonStyle? primaryButtonStyle,
     final ButtonStyle? secondaryButtonStyle,
-    final SolanaWalletMethodViewTheme? stateTheme,
+    final SolanaWalletStateTheme? stateTheme,
   }) => SolanaWalletThemeExtension(
       cardTheme: cardTheme ?? this.cardTheme,
       qrCodeTheme: qrCodeTheme ?? this.qrCodeTheme,
@@ -68,7 +68,7 @@ class SolanaWalletThemeExtension extends ThemeExtension<SolanaWalletThemeExtensi
       qrCodeTheme: SolanaWalletQrCodeTheme.lerp(qrCodeTheme, other.qrCodeTheme, t),
       primaryButtonStyle: ButtonStyle.lerp(primaryButtonStyle, other.primaryButtonStyle, t),
       secondaryButtonStyle: ButtonStyle.lerp(secondaryButtonStyle, other.secondaryButtonStyle, t),
-      stateTheme: other.stateTheme,
+      stateTheme: SolanaWalletStateTheme.lerp(stateTheme, other.stateTheme, t),
     );
   }
 }

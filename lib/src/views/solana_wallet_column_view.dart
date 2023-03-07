@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import '../layouts/solana_wallet_grid.dart';
 
 
-/// Solana Wallet List View
+/// Solana Wallet Column View
 /// ------------------------------------------------------------------------------------------------
 
-class SolanaWalletListView<T> extends StatelessWidget {
-
-  const SolanaWalletListView({
+/// A vertical stack of widgets separated by [spacing].
+class SolanaWalletColumnView<T> extends StatelessWidget {
+  
+  /// Creates a [Column] separated by [spacing].
+  const SolanaWalletColumnView({
     super.key,
     this.spacing = SolanaWalletGrid.x1 * 2.0,
     required this.children,
@@ -24,23 +26,21 @@ class SolanaWalletListView<T> extends StatelessWidget {
   final List<T> children;
 
   /// Converts [children] items to widgets.
-  final Widget Function(BuildContext context, T item)? builder;
+  final Widget Function(T item)? builder;
 
   /// The default item builder.
-  Widget _itemBuilder(final BuildContext context, final int index) 
-    => builder?.call(context, children[index]) ?? children[index] as Widget;
-    
-  /// The default item builder.
-  Widget _separatorBuilder(final BuildContext context, final int index) 
-    => SizedBox(height: spacing);
+  Widget _itemBuilder(final T item) => item as Widget;
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      shrinkWrap: true,
-      itemCount: children.length,
-      itemBuilder: _itemBuilder, 
-      separatorBuilder: _separatorBuilder, 
+    final itemBuilder = builder ?? _itemBuilder;
+    final int length = (children.length * 2) - 1;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < length; ++i)
+          i.isEven ? itemBuilder(children[i ~/ 2]) : SizedBox(height: spacing)
+      ],
     );
   }
 }

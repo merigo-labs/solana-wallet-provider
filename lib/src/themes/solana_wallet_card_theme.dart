@@ -1,7 +1,6 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'dart:ui' show lerpDouble;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../cards/solana_wallet_card.dart';
@@ -21,10 +20,11 @@ class SolanaWalletCardTheme with Diagnosticable {
     this.padding,
     this.headerColor,
     this.headerPadding,
+    this.divider,
     this.bodyColor,
     this.bodyPadding,
-    this.spacing,
     this.shape,
+    this.headerTextStyle,
     this.titleTextStyle,
     this.bodyTextStyle,
   });
@@ -44,25 +44,28 @@ class SolanaWalletCardTheme with Diagnosticable {
   /// The header section's padding.
   final EdgeInsets? headerPadding;
 
+  /// The widget placed between the header and body content.
+  final Widget? divider;
+
   /// The body section's background color.
   final Color? bodyColor;
 
   /// The body section's padding.
   final EdgeInsets? bodyPadding;
 
-  /// The vertical space between the title and body.
-  final double? spacing;
-
   /// The shape.
   final ShapeBorder? shape;
 
-  /// The title text style.
+  /// The header text style.
+  final TextStyle? headerTextStyle;
+
+  /// The content title text style.
   final TextStyle? titleTextStyle;
 
   /// The body text style.
   final TextStyle? bodyTextStyle;
 
-  /// Linearly interpolate between two [SolanaWalletCardTheme].
+  /// Linearly interpolate between two [SolanaWalletCardTheme]s.
   static SolanaWalletCardTheme lerp(
     final SolanaWalletCardTheme? a, 
     final SolanaWalletCardTheme? b, 
@@ -73,10 +76,11 @@ class SolanaWalletCardTheme with Diagnosticable {
       padding: EdgeInsets.lerp(a?.padding, b?.padding, t),
       headerColor: Color.lerp(a?.headerColor, b?.headerColor, t),
       headerPadding: EdgeInsets.lerp(a?.headerPadding, b?.headerPadding, t),
+      divider: b?.divider,
       bodyColor: Color.lerp(a?.bodyColor, b?.bodyColor, t),
       bodyPadding: EdgeInsets.lerp(a?.bodyPadding, b?.bodyPadding, t),
-      spacing: lerpDouble(a?.spacing, b?.spacing, t),
       shape: ShapeBorder.lerp(a?.shape, b?.shape, t),
+      headerTextStyle: TextStyle.lerp(a?.headerTextStyle, b?.headerTextStyle, t),
       titleTextStyle: TextStyle.lerp(a?.titleTextStyle, b?.titleTextStyle, t),
       bodyTextStyle: TextStyle.lerp(a?.bodyTextStyle, b?.bodyTextStyle, t),
     );

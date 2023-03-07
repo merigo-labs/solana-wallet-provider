@@ -2,16 +2,16 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import '../../src/solana_wallet_constants.dart';
+import '../utils/constants.dart';
 
 
 /// Solana Wallet Animated Switcher
 /// ------------------------------------------------------------------------------------------------
 
-/// An [AnimatedSwitcher] with a size and fade transition.
+/// An [AnimatedSwitcher] with size and fade transitions.
 class SolanaWalletAnimatedSwitcher extends AnimatedSwitcher {
 
-  /// Creates an [AnimatedSwitcher] with a size and fade transition.
+  /// Creates an [AnimatedSwitcher] with size and fade transitions.
   const SolanaWalletAnimatedSwitcher({
     super.key,
     final Duration? duration,

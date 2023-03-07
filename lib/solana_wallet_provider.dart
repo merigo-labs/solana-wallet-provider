@@ -3,32 +3,36 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
+import 'package:solana_web3/exceptions/transaction_exception.dart';
 import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
+import 'package:solana_web3/rpc_config/get_signature_statuses_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
 import 'package:solana_web3/rpc_models/blockhash_cache.dart';
 import 'package:solana_web3/rpc_models/blockhash_with_expiry_block_height.dart';
 import 'package:solana_web3/rpc_models/signature_notification.dart';
+import 'package:solana_web3/rpc_models/signature_status.dart';
 import 'package:solana_web3/solana_web3.dart';
 import 'package:solana_web3/types/commitment.dart';
+import 'src/cards/solana_wallet_card.dart';
 import 'src/cards/solana_wallet_connect_card.dart';
 import 'src/cards/solana_wallet_disconnect_card.dart';
 import 'src/exceptions/solana_wallet_provider_exception.dart';
-import 'src/exceptions/solana_wallet_provider_exception_code.dart';
-import 'src/models/dismiss_mode.dart';
+import 'src/models/dismiss_state.dart';
 import 'src/models/messages_and_addresses.dart';
-import 'src/models/solana_wallet_app_info.dart';
+import 'src/models/sign_in_message.dart';
 import 'src/models/solana_wallet_method_state.dart';
 import 'src/models/transaction_with_signers.dart';
 import 'src/models/transactions_and_signers.dart';
-import 'src/views/solana_wallet_method_view.dart';
-import 'src/cards/solana_wallet_card.dart';
-import 'src/solana_wallet_constants.dart';
+import 'src/utils/constants.dart';
 import 'src/themes/solana_wallet_theme_extension.dart';
-import 'src/views/solana_wallet_list_view.dart';
+import 'src/views/solana_wallet_content_view.dart';
+import 'src/views/solana_wallet_state_view.dart';
+import 'src/views/solana_wallet_opening_wallet_view.dart';
 import 'src/widgets/solana_wallet_method_builder.dart';
-import 'src/widgets/solana_wallet_sign_and_send_transactions_result_view.dart';
+import 'src/views/solana_wallet_sign_and_send_transactions_result_view.dart';
 
 
 /// Exports
@@ -51,16 +55,15 @@ export 'src/cards/solana_wallet_card.dart';
 export 'src/cards/solana_wallet_connect_card.dart';
 
 // src/exceptions/
-export 'src/exceptions/solana_wallet_provider_exception_code.dart';
 export 'src/exceptions/solana_wallet_provider_exception.dart';
 
 // src/extensions/
 export 'src/extensions/account.dart';
 
 // src/models/
-export 'src/models/dismiss_mode.dart';
+export 'src/models/dismiss_state.dart';
 export 'src/models/messages_and_addresses.dart';
-export 'src/models/solana_wallet_app_info.dart';
+export 'src/models/sign_in_message.dart';
 export 'src/models/solana_wallet_method_state.dart';
 export 'src/models/transaction_with_signers.dart';
 export 'src/models/transactions_and_signers.dart';
@@ -68,13 +71,14 @@ export 'src/models/transactions_and_signers.dart';
 // src/themes/
 export 'src/themes/solana_wallet_card_theme.dart';
 export 'src/themes/solana_wallet_qr_code_theme.dart';
-export 'src/themes/solana_wallet_method_view_theme.dart';
+export 'src/themes/solana_wallet_state_theme.dart';
 export 'src/themes/solana_wallet_theme_extension.dart';
 
 // src/views/
-export 'src/views/solana_wallet_download_list_view.dart';
-export 'src/views/solana_wallet_list_view.dart';
-export 'src/views/solana_wallet_method_view.dart';
+export 'src/views/solana_wallet_app_list_view.dart';
+export 'src/views/solana_wallet_app_download_view.dart';
+export 'src/views/solana_wallet_column_view.dart';
+export 'src/views/solana_wallet_state_view.dart';
 export 'src/views/solana_wallet_remote_connect_view.dart';
 
 // src/widgets/
@@ -163,6 +167,7 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   factory SolanaWalletProvider.create({
     required AppIdentity identity,
     final Cluster? cluster,
+    final Cluster? wsCluster,
     final Commitment? commitment = Commitment.confirmed,
     final String? hostAuthority,
     required Widget child,
@@ -171,6 +176,7 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     return SolanaWalletProvider(
       connection: Connection(
         defaultCluster, 
+        wsCluster: wsCluster,
         commitment: commitment,
       ), 
       adapter: SolanaWalletAdapter(
@@ -205,8 +211,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
 
   /// Opens the provider's modal bottom sheet with the contents returned by [builder].
   /// 
-  /// The modal will be dismissed in accordance with the provided [dismissMode].
-  /// 
   /// {@template solana_wallet_provider.dismissed_exception}
   /// Throws a [SolanaWalletProviderException] with code 
   /// [SolanaWalletProviderExceptionCode.dismissed] if the modal closes before completing the task.
@@ -214,45 +218,18 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<T> open<T>({
     required final BuildContext context, 
     required final Widget Function(BuildContext, Completer<T>) builder,
-    final DismissMode? dismissMode,
   }) {
     final Completer<T> completer = Completer();
-    _dismissModal(
-      context, 
-      future: completer.future, 
-      mode: dismissMode,
-    );
     showModalBottomSheet(
       context: context, 
       builder: (final BuildContext context) => builder(context, completer),
       isScrollControlled: true,
       routeSettings: modalRouteSettings,
       backgroundColor: Colors.transparent,
+      elevation: 0,
     ).whenComplete(_onMethodCancelledHandler(completer))
      .ignore();
     return completer.future;
-  }
-
-  /// Dismiss the modal bottom sheet created for [future] in accordance with [mode].
-  void _dismissModal<T>(
-    final BuildContext context, {
-    required final Future<T> future,
-    required final DismissMode? mode,
-  }) {
-    switch(mode) {
-      case null:
-      case DismissMode.none:
-        break;
-      case DismissMode.success:
-        future.then((_) { close(context); });
-        break;
-      case DismissMode.error:
-        future.catchError((_) { close(context); });
-        break;
-      case DismissMode.done:
-        future.whenComplete(() { close(context); });
-        break;
-    }
   }
 
   /// Resolves [completer] with [value].
@@ -303,59 +280,45 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   VoidCallback _onMethodCancelledHandler<T>(
     final Completer<T> completer,
   ) => () {
+    SolanaWalletAdapter.disconnect().ignore();
     return _onMethodCancelled(completer);
   };
 
-  /// Creates a [Widget] by invoking the corresponding builder method of [controller.state].
-  Widget stateWidget<T, U>(
+  /// Creates a [Widget] by invoking the corresponding builder method of 
+  /// [SolanaWalletMethodController.state].
+  Widget stateWidget<T>(
     final BuildContext context, 
     final AsyncSnapshot<T> snapshot, 
-    final SolanaWalletMethodController<U> controller, {
-    final Widget Function(BuildContext)? noneBuilder,
-    final Widget Function(BuildContext)? progressBuilder,
-    final Widget Function(BuildContext, T?)? successBuilder,
-    final Widget Function(BuildContext, Object? error)? errorBuilder,
+    final SolanaWalletMethodController controller, {
+    required final Widget Function(BuildContext)? noneBuilder,
+    required final Widget Function(BuildContext) progressBuilder,
+    required final Widget Function(BuildContext, T?)? successBuilder,
+    required final Widget Function(BuildContext, Object? error) errorBuilder,
   }) {
     switch (controller.state) {
       case SolanaWalletMethodState.none:
-        return noneBuilder?.call(context)
-          ?? SolanaWalletCard(
-              body: SolanaWalletMethodView.none(),
-            );
+        return noneBuilder?.call(context) 
+          ?? progressBuilder.call(context);
       case SolanaWalletMethodState.progress:
-        return progressBuilder?.call(context)
-          ?? SolanaWalletCard(
-              body: SolanaWalletMethodView.progress(
-                'Waiting for wallet response.',
-              ),
-            );
+        return progressBuilder.call(context);
       case SolanaWalletMethodState.success:
         return successBuilder?.call(context, snapshot.data)
-          ?? SolanaWalletCard(
-              body: SolanaWalletMethodView.success(
-                'Success.',
-              ),
-            );
+          ?? SolanaWalletStateView.success();
       case SolanaWalletMethodState.error:
-        return errorBuilder?.call(context, snapshot.error)
-          ?? SolanaWalletCard(
-              body: SolanaWalletMethodView.error(
-                snapshot.error,
-              ),
-            );
+        return errorBuilder.call(context, snapshot.error);
     }
   }
 
   /// Creates a builder method that calls [stateWidget].
-  MethodBuilder<T, U> stateWidgetBuilder<T, U>({
+  MethodBuilder<T> stateWidgetBuilder<T>({
     final Widget Function(BuildContext)? noneBuilder,
-    final Widget Function(BuildContext)? progressBuilder,
+    required final Widget Function(BuildContext) progressBuilder,
     final Widget Function(BuildContext, T?)? successBuilder,
-    final Widget Function(BuildContext, Object? error)? errorBuilder,
+    required final Widget Function(BuildContext, Object? error) errorBuilder,
   }) => (
     final BuildContext context, 
     final AsyncSnapshot<T> snapshot, 
-    final SolanaWalletMethodController<U> controller,
+    final SolanaWalletMethodController controller,
   ) => stateWidget(
     context, 
     snapshot, 
@@ -368,22 +331,26 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
 
   /// Presents a modal bottom sheet with a [SolanaWalletConnectCard].
   /// 
-  /// The [apps] are given as download options if a Solana wallet cannot be found on the device.
+  /// Provide [options] to display a list of wallet applications prior to establishing a connection.
+  /// 
+  /// The [downloadOptions] are presented if a Solana wallet cannot be found on the device.
   Future <AuthorizeResult> connect(
     final BuildContext context, {
-    final List<SolanaWalletAppInfo> apps = const [],
+    final List<AppInfo> options = const [],
+    final List<AppInfo> downloadOptions = const [],
     final String? hostAuthority,
-    final DismissMode? dismissMode,
+    final DismissState? dismissState,
   }) => open(
     context: context, 
-    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<AuthorizeResult> completer,
     ) => SolanaWalletConnectCard(
-      apps: apps, 
+      options: options, 
+      downloadOptions: downloadOptions,
       adapter: adapter,
       hostAuthority: hostAuthority,
+      dismissState: dismissState,
       onComplete: _onMethodCompleteHandler(completer),
       onCompleteError: _onMethodCompleteErrorHandler(completer),
     ),
@@ -392,10 +359,9 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   /// Presents a modal bottom sheet with a [SolanaWalletDisconnectCard].
   Future<DeauthorizeResult> disconnect(
     final BuildContext context, {
-    final DismissMode? dismissMode,
+    final DismissState? dismissState,
   }) => open(
     context: context, 
-    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<DeauthorizeResult> completer,
@@ -409,14 +375,13 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
 
   /// Presents a modal bottom sheet with the contents returned by [builder] for a non-privileged 
   /// [method] call.
-  Future<T> nonPrivilegedMethod<T, U>(
+  Future<T> nonPrivilegedMethod<T>(
     final BuildContext context, {
     required final Future<T> Function() method,
-    required final MethodBuilder<T, dynamic> builder,
-    final DismissMode? dismissMode,
+    required final MethodBuilder<T> builder,
+    final DismissState? dismissState,
   }) => open(
     context: context, 
-    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<T> completer,
@@ -424,198 +389,183 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
       value: null,
       method: (_) => method(), 
       builder: builder,
+      dismissState: dismissState,
       onComplete: _onMethodCompleteHandler(completer),
       onCompleteError: _onMethodCompleteErrorHandler(completer),
     ),
   );
 
-  /// Presents a modal bottom sheet for an [adapter.authorize] method call.
-  ///
-  /// {@macro solana_wallet_adapter.authorize}
-  ///
-  /// {@macro solana_wallet_provider.dismissed_exception}
-  Future<AuthorizeResult> authorize(
-    final BuildContext context, {
-    final MethodBuilder<AuthorizeResult, dynamic>? builder,
-    final Widget? title,
-    final DismissMode? dismissMode,
-  }) => nonPrivilegedMethod(
-    context, 
-    dismissMode: dismissMode,
-    method: adapter.authorize,
-    builder: builder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        title: title,
-        body: SolanaWalletMethodView.progress(
-          'Waiting for wallet to connect.',
-        ),
-      ),
-      successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Wallet connected.',
-        ),
-      ),
-      errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to connect.',
-        ),
-      ),
-    ),
-  );
+  // /// Presents a modal bottom sheet for an [SolanaWalletAdapter.authorize] method call.
+  // ///
+  // /// {@macro solana_wallet_adapter_platform_interface.authorize}
+  // ///
+  // /// {@macro solana_wallet_provider.dismissed_exception}
+  // Future<AuthorizeResult> authorize(
+  //   final BuildContext context, {
+  //   final MethodBuilder<AuthorizeResult>? builder,
+  //   final Widget? header,
+  //   final DismissState? dismissState,
+  // }) => nonPrivilegedMethod(
+  //   context, 
+  //   dismissState: dismissState,
+  //   method: adapter.authorize,
+  //   builder: builder ?? stateWidgetBuilder(
+  //     progressBuilder: (_) => SolanaWalletCard(
+  //       header: header,
+  //       body: const SolanaWalletOpeningWalletView(),
+  //     ),
+  //     successBuilder: (_, result) => SolanaWalletCard(
+  //       body: SolanaWalletAuthorizedView(
+  //         result: result,
+  //       ),
+  //     ),
+  //     errorBuilder: (_, error) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.error(
+  //         error: error,
+  //         message: 'Failed to connect.',
+  //       ),
+  //     ),
+  //   ),
+  // );
   
-  /// Presents a modal bottom sheet for an [adapter.deauthorize] method call.
-  ///
-  /// {@macro solana_wallet_adapter.deauthorize}
-  ///
-  /// {@macro solana_wallet_provider.dismissed_exception}
-  Future<DeauthorizeResult> deauthorize(
-    final BuildContext context, {
-    final MethodBuilder<DeauthorizeResult, dynamic>? builder,
-    final Widget? title,
-    final DismissMode? dismissMode,
-  }) => nonPrivilegedMethod(
-    context, 
-    dismissMode: dismissMode,
-    method: adapter.deauthorize,
-    builder: builder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        title: title,
-        body: SolanaWalletMethodView.progress(
-          'Waiting for wallet to connect.',
-        ),
-      ),
-      successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Wallet disconnected.',
-        ),
-      ),
-      errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to disconnect.',
-        ),
-      ),
-    ),
-  );
+  // /// Presents a modal bottom sheet for an [SolanaWalletAdapter.deauthorize] method call.
+  // ///
+  // /// {@macro solana_wallet_adapter_platform_interface.deauthorize}
+  // ///
+  // /// {@macro solana_wallet_provider.dismissed_exception}
+  // Future<DeauthorizeResult> deauthorize(
+  //   final BuildContext context, {
+  //   final MethodBuilder<DeauthorizeResult>? builder,
+  //   final Widget? header,
+  //   final DismissState? dismissState,
+  // }) => nonPrivilegedMethod(
+  //   context, 
+  //   dismissState: dismissState,
+  //   method: adapter.deauthorize,
+  //   builder: builder ?? stateWidgetBuilder(
+  //     progressBuilder: (_) => SolanaWalletCard(
+  //       header: header,
+  //       body: const SolanaWalletOpeningWalletView(),
+  //     ),
+  //     successBuilder: (_, __) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.success(
+  //         title: 'Wallet Disconnected',
+  //       ),
+  //     ),
+  //     errorBuilder: (_, error) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.error(
+  //         error: error,
+  //         message: 'Failed to disconnect.',
+  //       ),
+  //     ),
+  //   ),
+  // );
 
-  /// Presents a modal bottom sheet for an [adapter.reauthorize] method call.
-  /// 
-  /// {@macro solana_wallet_adapter.reauthorize}
-  ///
-  /// {@macro solana_wallet_provider.dismissed_exception}
-  Future<ReauthorizeResult> reauthorize(
-    final BuildContext context, {
-    final MethodBuilder<ReauthorizeResult, dynamic>? builder,
-    final Widget? title,
-    final DismissMode? dismissMode,
-  }) => nonPrivilegedMethod(
-    context, 
-    dismissMode: dismissMode,
-    method: adapter.reauthorize,
-    builder: builder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        title: title,
-        body: SolanaWalletMethodView.progress(
-          'Waiting for wallet to connect.',
-        ),
-      ),
-      successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Wallet connected.',
-        ),
-      ),
-      errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to connect.',
-        ),
-      ),
-    ),
-  );
+  // /// Presents a modal bottom sheet for an [SolanaWalletAdapter.reauthorize] method call.
+  // /// 
+  // /// {@macro solana_wallet_adapter_platform_interface.reauthorize}
+  // ///
+  // /// {@macro solana_wallet_provider.dismissed_exception}
+  // Future<ReauthorizeResult> reauthorize(
+  //   final BuildContext context, {
+  //   final MethodBuilder<ReauthorizeResult>? builder,
+  //   final Widget? header,
+  //   final DismissState? dismissState,
+  // }) => nonPrivilegedMethod(
+  //   context, 
+  //   dismissState: dismissState,
+  //   method: adapter.reauthorize,
+  //   builder: builder ?? stateWidgetBuilder(
+  //     progressBuilder: (_) => SolanaWalletCard(
+  //       header: header,
+  //       body: const SolanaWalletOpeningWalletView(),
+  //     ),
+  //     successBuilder: (_, __) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.success(
+  //         title: 'Wallet Connected',
+  //       ),
+  //     ),
+  //     errorBuilder: (_, error) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.error(
+  //         error: error,
+  //         message: 'Failed to connect.',
+  //       ),
+  //     ),
+  //   ),
+  // );
 
-  /// Presents a modal bottom sheet for an [adapter.reauthorizeOrAuthorize] method call.
-  ///
-  /// {@macro solana_wallet_adapter.reauthorizeOrAuthorize}
-  ///
-  /// {@macro solana_wallet_provider.dismissed_exception}
-  Future<AuthorizeResult> reauthorizeOrAuthorize(
-    final BuildContext context, {
-    final MethodBuilder<AuthorizeResult, dynamic>? builder,
-    final Widget? title,
-    final DismissMode? dismissMode,
-  }) => nonPrivilegedMethod(
-    context, 
-    dismissMode: dismissMode,
-    method: adapter.reauthorize,
-    builder: builder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        title: title,
-        body: SolanaWalletMethodView.progress(
-          'Waiting for wallet to connect.',
-        ),
-      ),
-      successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Wallet connected.',
-        ),
-      ),
-      errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to connect.',
-        ),
-      ),
-    ),
-  );
+  // /// Presents a modal bottom sheet for an [SolanaWalletAdapter.reauthorizeOrAuthorize] method call.
+  // ///
+  // /// {@macro solana_wallet_adapter_platform_interface.reauthorizeOrAuthorize}
+  // ///
+  // /// {@macro solana_wallet_provider.dismissed_exception}
+  // Future<AuthorizeResult> reauthorizeOrAuthorize(
+  //   final BuildContext context, {
+  //   final MethodBuilder<AuthorizeResult>? builder,
+  //   final Widget? header,
+  //   final DismissState? dismissState,
+  // }) => nonPrivilegedMethod(
+  //   context, 
+  //   dismissState: dismissState,
+  //   method: adapter.reauthorizeOrAuthorize,
+  //   builder: builder ?? stateWidgetBuilder(
+  //     progressBuilder: (_) => SolanaWalletCard(
+  //       header: header,
+  //       body: const SolanaWalletOpeningWalletView(),
+  //     ),
+  //     successBuilder: (_, __) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.success(
+  //         title: 'Wallet Connected',
+  //       ),
+  //     ),
+  //     errorBuilder: (_, error) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.error(
+  //         error: error,
+  //         message: 'Failed to connect.',
+  //       ),
+  //     ),
+  //   ),
+  // );
 
-  /// Presents a modal bottom sheet for an [adapter.getCapabilities] method call.
-  ///
-  /// {@macro solana_wallet_adapter.getCapabilities}
-  ///
-  /// {@macro solana_wallet_provider.dismissed_exception}
-  Future<GetCapabilitiesResult> getCapabilities(
-    final BuildContext context, {
-    final MethodBuilder<GetCapabilitiesResult, dynamic>? builder,
-    final Widget? title,
-    final DismissMode? dismissMode,
-  }) => nonPrivilegedMethod(
-    context, 
-    dismissMode: dismissMode,
-    method: adapter.getCapabilities,
-    builder: builder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        title: title,
-        body: SolanaWalletMethodView.progress(
-          'Requesting wallet capabilities.',
-        ),
-      ),
-      successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Success.',
-        ),
-      ),
-      errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed.',
-        ),
-      ),
-    ),
-  );
+  // /// Presents a modal bottom sheet for an [SolanaWalletAdapter.getCapabilities] method call.
+  // ///
+  // /// {@macro solana_wallet_adapter_platform_interface.getCapabilities}
+  // ///
+  // /// {@macro solana_wallet_provider.dismissed_exception}
+  // Future<GetCapabilitiesResult> getCapabilities(
+  //   final BuildContext context, {
+  //   final MethodBuilder<GetCapabilitiesResult>? builder,
+  //   final Widget? header,
+  //   final DismissState? dismissState,
+  // }) => nonPrivilegedMethod(
+  //   context, 
+  //   dismissState: dismissState,
+  //   method: adapter.getCapabilities,
+  //   builder: builder ?? stateWidgetBuilder(
+  //     progressBuilder: (_) => SolanaWalletCard(
+  //       header: header,
+  //       body: const SolanaWalletOpeningWalletView(),
+  //     ),
+  //     errorBuilder: (_, error) => SolanaWalletCard(
+  //       body: SolanaWalletStateView.error(
+  //         error: error,
+  //       ),
+  //     ),
+  //   ),
+  // );
 
   /// Creates a builder method that generates a widget for each [SolanaWalletMethodState]s.
-  MethodBuilder<U, dynamic> _privilegedBuilder<T, U>({
+  MethodBuilder<U> _privilegedBuilder<T, U>({
     required final Completer<T> completer,
     required final Future<T> Function(U value) method,
-    required final MethodBuilder<U, dynamic> valueBuilder,
-    required final MethodBuilder<T, U> methodBuilder,
-    required final MethodBuilder<T, U>? reviewBuilder,
+    required final MethodBuilder<U> valueBuilder,
+    required final MethodBuilder<T> methodBuilder,
+    required final MethodBuilder<T>? reviewBuilder,
   }) {
     return (
       final BuildContext context, 
       final AsyncSnapshot<U> snapshot, 
-      final SolanaWalletMethodController<dynamic> controller,
+      final SolanaWalletMethodController controller,
     ) {
       SolanaWalletMethodState state = controller.state;
       if (state == SolanaWalletMethodState.success) {
@@ -641,14 +591,14 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   }
 
   /// Creates a builder method that generates a widget for a privileged method call.
-  MethodBuilder<T, U> _privilegedInnerBuilder<T, U>({
-    required final MethodBuilder<T, U>? reviewBuilder,
-    required final MethodBuilder<T, U> methodBuilder,
+  MethodBuilder<T> _privilegedInnerBuilder<T>({
+    required final MethodBuilder<T>? reviewBuilder,
+    required final MethodBuilder<T> methodBuilder,
   }) {
     return (
       final BuildContext context, 
       final AsyncSnapshot<T> snapshot, 
-      final SolanaWalletMethodController<U> controller,
+      final SolanaWalletMethodController controller,
     ) {
       switch (controller.state) {
         case SolanaWalletMethodState.none:
@@ -664,28 +614,27 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Widget _privilegedReviewBuilder<T, U>(
       final BuildContext context, 
       final AsyncSnapshot<T> snapshot, 
-      final SolanaWalletMethodController<U> controller,
+      final SolanaWalletMethodController controller,
   ) {
     final SolanaWalletThemeExtension? themeExt = SolanaWalletThemeExtension.of(context);
     return SolanaWalletCard(
-      body: SolanaWalletListView(
-        children: [
-          const Text('Would you like to proceed with your order?'),
-          Row(
-            children: [
-              TextButton(
-                onPressed: () => SolanaWalletProvider.close(context), 
-                style: themeExt?.secondaryButtonStyle,
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => controller.call(), 
-                style: themeExt?.primaryButtonStyle,
-                child: const Text('Continue'),
-              ),
-            ],
-          )
-        ],
+      body: SolanaWalletContentView(
+        title: const Text('Review Order'),
+        message: const Text('Would you like to proceed with your order?'),
+        body: Row(
+          children: [
+            TextButton(
+              onPressed: () => SolanaWalletProvider.close(context), 
+              style: themeExt?.secondaryButtonStyle,
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => controller.call(), 
+              style: themeExt?.primaryButtonStyle,
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -695,13 +644,12 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context, {
     required final Future<U> value,
     required final Future<T> Function(U value) method,
-    required final MethodBuilder<U, dynamic> valueBuilder,
-    required final MethodBuilder<T, U>? reviewBuilder,
-    required final MethodBuilder<T, U> methodBuilder,
-    final DismissMode? dismissMode,
+    required final MethodBuilder<U> valueBuilder,
+    required final MethodBuilder<T>? reviewBuilder,
+    required final MethodBuilder<T> methodBuilder,
+    final DismissState? dismissState,
   }) => open(
     context: context, 
-    dismissMode: dismissMode,
     builder: (
       final BuildContext context, 
       final Completer<T> completer,
@@ -715,115 +663,114 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
         methodBuilder: methodBuilder,
         reviewBuilder: reviewBuilder,
       ),
+      dismissState: dismissState,
       onCompleteError: _onMethodCompleteErrorHandler(completer),
     ),
   );
 
-  /// Presents a modal bottom sheet for an [adapter.signTransactions] method call.
+  /// Presents a modal bottom sheet for an [SolanaWalletAdapter.signTransactions] method call.
   /// 
-  /// {@macro solana_wallet_adapter.signTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signTransactions}
   ///
   /// {@macro solana_wallet_provider.dismissed_exception}
   Future<SignTransactionsResult> signTransactions(
     final BuildContext context,
     final Future<List<Transaction>> transactions, {
-    final Widget? valueTitle,
-    final Widget? methodTitle,
-    final MethodBuilder<List<Transaction>, dynamic>? valueBuilder,
-    final MethodBuilder<SignTransactionsResult, List<Transaction>>? reviewBuilder,
-    final MethodBuilder<SignTransactionsResult, List<Transaction>>? methodBuilder,
-    final DismissMode? dismissMode,
+    final Widget? valueHeader,
+    final Widget? methodHeader,
+    final MethodBuilder<List<Transaction>>? valueBuilder,
+    final MethodBuilder<SignTransactionsResult>? reviewBuilder,
+    final MethodBuilder<SignTransactionsResult>? methodBuilder,
+    final DismissState? dismissState,
   }) => privilegedMethod(
     context, 
-    dismissMode: dismissMode,
+    dismissState: dismissState,
     value: transactions, 
     method: _signTransactionsHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: valueTitle,
-        body: SolanaWalletMethodView.progress(
-          'Processing transactions.',
+        header: valueHeader,
+        body: SolanaWalletStateView.progress(
+          title: 'Transaction',
+          message: 'Processing transactions.',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to process transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process transactions.',
         ),
       ),
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: methodTitle,
-        body: SolanaWalletMethodView.progress(
-          'Signing transactions.',
-        ),
+        header: methodHeader,
+        body: const SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Signing complete.',
+        body: SolanaWalletStateView.success(
+          title: 'Transactions Signed',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to sign transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to sign transactions.',
         ),
       ),
     ),
   );
   
-  /// Presents a modal bottom sheet for an [adapter.signTransactions] method call.
+  /// Presents a modal bottom sheet for an [SolanaWalletAdapter.signTransactions] method call.
   /// 
-  /// {@macro solana_wallet_adapter.signTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signTransactions}
   ///
   /// {@macro solana_wallet_provider.dismissed_exception}
   Future<SignTransactionsResult> signTransactionsWithSigners(
     final BuildContext context,
     final Future<List<TransactionWithSigners>> transactions, {
-    final Widget? valueTitle,
-    final Widget? methodTitle,
-    final MethodBuilder<List<TransactionWithSigners>, dynamic>? valueBuilder,
-    final MethodBuilder<SignTransactionsResult, List<TransactionWithSigners>>? reviewBuilder,
-    final MethodBuilder<SignTransactionsResult, List<TransactionWithSigners>>? methodBuilder,
-    final DismissMode? dismissMode,
+    final Widget? valueHeader,
+    final Widget? methodHeader,
+    final MethodBuilder<List<TransactionWithSigners>>? valueBuilder,
+    final MethodBuilder<SignTransactionsResult>? reviewBuilder,
+    final MethodBuilder<SignTransactionsResult>? methodBuilder,
+    final DismissState? dismissState,
   }) => privilegedMethod(
     context, 
-    dismissMode: dismissMode,
+    dismissState: dismissState,
     value: transactions, 
     method: _signTransactionsWithSignersHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: valueTitle,
-        body: SolanaWalletMethodView.progress(
-          'Processing transactions.',
+        header: valueHeader,
+        body: SolanaWalletStateView.progress(
+          title: 'Transaction',
+          message: 'Processing transactions.',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to process transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process transactions.',
         ),
       ),
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: methodTitle,
-        body: SolanaWalletMethodView.progress(
-          'Signing transactions.',
-        ),
+        header: methodHeader,
+        body: const SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Signing complete.',
+        body: SolanaWalletStateView.success(
+          title: 'Transactions Signed',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to sign transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to sign transactions.',
         ),
       ),
     ),
@@ -834,19 +781,18 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final BuildContext context,
     final SignAndSendTransactionsResult? data,
   ) {
-    final int length = data != null ? data.signatures.length : 0;
     return SolanaWalletCard(
       body: SolanaWalletSignAndSendTransactionsResultView(
         result: data, 
-        cluster: connection.cluster,
-        message: 'Transaction${length != 1 ? 's' : ''} confirmed.',
+        cluster: connection.cluster, 
       ),
     );
   }
 
-  /// Presents a modal bottom sheet for an [adapter.signAndSendTransactions] method call.
+  /// Presents a modal bottom sheet for an [SolanaWalletAdapter.signAndSendTransactions] method 
+  /// call.
   /// 
-  /// {@macro solana_wallet_adapter.signTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signAndSendTransactions}
   ///
   /// {@macro solana_wallet_provider.dismissed_exception}
   Future<SignAndSendTransactionsResult> signAndSendTransactions(
@@ -855,15 +801,15 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final Commitment? commitment = Commitment.confirmed,
     final SignAndSendTransactionsConfig? config,
     final bool skipErrorResponse = false,
-    final Widget? valueTitle,
-    final Widget? methodTitle,
-    final MethodBuilder<List<Transaction>, dynamic>? valueBuilder,
-    final MethodBuilder<SignAndSendTransactionsResult, List<Transaction>>? reviewBuilder,
-    final MethodBuilder<SignAndSendTransactionsResult, List<Transaction>>? methodBuilder,
-    final DismissMode? dismissMode,
+    final Widget? valueHeader,
+    final Widget? methodHeader,
+    final MethodBuilder<List<Transaction>>? valueBuilder,
+    final MethodBuilder<SignAndSendTransactionsResult>? reviewBuilder,
+    final MethodBuilder<SignAndSendTransactionsResult>? methodBuilder,
+    final DismissState? dismissState,
   }) => privilegedMethod(
     context, 
-    dismissMode: dismissMode,
+    dismissState: dismissState,
     value: transactions, 
     method: (final List<Transaction> transactions) => _signAndSendTransactionsPolyfill(
       transactions,
@@ -873,39 +819,39 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ), 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: valueTitle,
-        body: SolanaWalletMethodView.progress(
-          'Processing transactions.',
+        header: valueHeader,
+        body: SolanaWalletStateView.progress(
+          title: 'Transaction',
+          message: 'Processing transactions.',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to process transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process transactions.',
         ),
       ),
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: methodTitle,
-        body: SolanaWalletMethodView.progress(
-          'Signing transactions to the network.',
-        ),
+        header: methodHeader,
+        body: const SolanaWalletOpeningWalletView(),
       ),
       successBuilder: _signAndSendTransactionsResultBuilder,
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to sign and send transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process transactions.',
         ),
       ),
     ),
   );
 
-  /// Presents a modal bottom sheet for an [adapter.signAndSendTransactions] method call.
+  /// Presents a modal bottom sheet for an [SolanaWalletAdapter.signAndSendTransactions] method 
+  /// call.
   /// 
-  /// {@macro solana_wallet_adapter.signTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signAndSendTransactions}
   ///
   /// {@macro solana_wallet_provider.dismissed_exception}
   Future<SignAndSendTransactionsResult> signAndSendTransactionsWithSigners(
@@ -914,15 +860,15 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final Commitment? commitment = Commitment.confirmed,
     final SignAndSendTransactionsConfig? config,
     final bool skipErrorResponse = false,
-    final Widget? valueTitle,
-    final Widget? methodTitle,
-    final MethodBuilder<List<TransactionWithSigners>, dynamic>? valueBuilder,
-    final MethodBuilder<SignAndSendTransactionsResult, List<TransactionWithSigners>>? reviewBuilder,
-    final MethodBuilder<SignAndSendTransactionsResult, List<TransactionWithSigners>>? methodBuilder,
-    final DismissMode? dismissMode,
+    final Widget? valueHeader,
+    final Widget? methodHeader,
+    final MethodBuilder<List<TransactionWithSigners>>? valueBuilder,
+    final MethodBuilder<SignAndSendTransactionsResult>? reviewBuilder,
+    final MethodBuilder<SignAndSendTransactionsResult>? methodBuilder,
+    final DismissState? dismissState,
   }) => privilegedMethod(
     context, 
-    dismissMode: dismissMode,
+    dismissState: dismissState,
     value: transactions, 
     method: (final List<TransactionWithSigners> transactions) 
       => _signAndSendTransactionsWithSignersHandler(
@@ -930,98 +876,226 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
         commitment: commitment, 
         config: config,
         skipErrorResponse: skipErrorResponse,
-      ), 
-    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      ), valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: valueTitle,
-        body: SolanaWalletMethodView.progress(
-          'Processing transactions.',
+        header: valueHeader,
+        body: SolanaWalletStateView.progress(
+          title: 'Transaction',
+          message: 'Processing transactions.',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to process transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process transactions.',
         ),
       ),
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: methodTitle,
-        body: SolanaWalletMethodView.progress(
-          'Signing transactions to the network.',
-        ),
+        header: methodHeader,
+        body: const SolanaWalletOpeningWalletView(),
       ),
       successBuilder: _signAndSendTransactionsResultBuilder,
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to sign and send transactions.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process transactions.',
         ),
       ),
     ),
   );
 
-  /// Presents a modal bottom sheet for an [adapter.signMessages] method call.
+  /// Presents a modal bottom sheet for an [SolanaWalletAdapter.signMessages] method call.
   /// 
-  /// {@macro solana_wallet_adapter.signMessages}
+  /// {@macro solana_wallet_adapter_platform_interface.signMessages}
   ///
   /// {@macro solana_wallet_provider.dismissed_exception}
   Future<SignMessagesResult> signMessages(
     final BuildContext context,
     final Future<MessagesAndAddresses> messages, {
-    final Widget? valueTitle,
-    final Widget? methodTitle,
-    final MethodBuilder<MessagesAndAddresses, dynamic>? valueBuilder,
-    final MethodBuilder<SignMessagesResult, MessagesAndAddresses>? reviewBuilder,
-    final MethodBuilder<SignMessagesResult, MessagesAndAddresses>? methodBuilder,
-    final DismissMode? dismissMode,
+    final Widget? valueHeader,
+    final Widget? methodHeader,
+    final MethodBuilder<MessagesAndAddresses>? valueBuilder,
+    final MethodBuilder<SignMessagesResult>? reviewBuilder,
+    final MethodBuilder<SignMessagesResult>? methodBuilder,
+    final DismissState? dismissState,
   }) => privilegedMethod(
     context, 
-    dismissMode: dismissMode,
+    dismissState: dismissState,
     value: messages, 
     method: _signMessagesHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: valueTitle,
-        body: SolanaWalletMethodView.progress(
-          'Processing messages.',
+        header: valueHeader,
+        body: SolanaWalletStateView.progress(
+          title: 'Message',
+          message: 'Processing messages.',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to process messages.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process messages.',
         ),
       ),
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        title: methodTitle,
-        body: SolanaWalletMethodView.progress(
-          'Signing messages.',
-        ),
+        header: methodHeader,
+        body: const SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
-        body: SolanaWalletMethodView.success(
-          'Signing complete.',
+        body: SolanaWalletStateView.success(
+          title: 'Messages Signed',
         ),
       ),
       errorBuilder: (_, error) => SolanaWalletCard(
-        body: SolanaWalletMethodView.error(
-          error,
-          'Failed to sign messages.',
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to sign messages.',
         ),
       ),
     ),
   );
-    
+
+  /// Presents a modal bottom sheet for a `sign in` message method call.
+  /// 
+  /// {@macro solana_wallet_adapter_platform_interface.signMessages}
+  ///
+  /// {@macro solana_wallet_provider.dismissed_exception}
+  Future<SignMessagesResult> signInMessage(
+    final BuildContext context,
+    final Future<SignInMessage> message, {
+    final Widget? valueHeader,
+    final Widget? methodHeader,
+    final MethodBuilder<SignInMessage>? valueBuilder,
+    final MethodBuilder<SignMessagesResult>? reviewBuilder,
+    final MethodBuilder<SignMessagesResult>? methodBuilder,
+    final DismissState? dismissState,
+  }) => privilegedMethod(
+    context, 
+    dismissState: dismissState,
+    value: message, 
+    method: _signInMessageHandler, 
+    valueBuilder: valueBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        header: valueHeader,
+        body: SolanaWalletStateView.progress(
+          title: 'Sign In',
+          message: 'Processing sign in message.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to process sign in message.',
+        ),
+      ),
+    ),
+    reviewBuilder: reviewBuilder,
+    methodBuilder: methodBuilder ?? stateWidgetBuilder(
+      progressBuilder: (_) => SolanaWalletCard(
+        header: methodHeader,
+        body: const SolanaWalletOpeningWalletView(),
+      ),
+      successBuilder: (_, __) => SolanaWalletCard(
+        body: SolanaWalletStateView.success(
+          message: 'Sign in complete.',
+        ),
+      ),
+      errorBuilder: (_, error) => SolanaWalletCard(
+        body: SolanaWalletStateView.error(
+          error: error,
+          message: 'Failed to sign in.',
+        ),
+      ),
+    ),
+  );
+
+  /// Formats [address].
+  String _signInMessageAddress(final PublicKey? address) {
+    final String? messageAddress = address?.toBase58() ?? connectedAccount?.addressBase58;
+    if (messageAddress != null) {
+      return messageAddress;
+    }
+    final List<Account>? accounts = authorizeResult?.accounts;
+    if (accounts != null && accounts.isNotEmpty) {
+      return accounts.first.addressBase58;
+    }
+    throw const SolanaWalletProviderException(
+      'Sign in message requires an address.',
+      code: SolanaWalletProviderExceptionCode.format,
+    );
+  }
+
+  /// Formats chain [id].
+  String _signInMessageChainId(final String? id) {
+    final String? chainId = id ?? adapter.cluster?.id ?? Cluster.mainnet.id;
+    return chainId ?? (throw const SolanaWalletProviderException(
+      'Sign in message requires a chain id.',
+      code: SolanaWalletProviderExceptionCode.format,
+    ));
+  }
+
+  /// Creates a random string if [nonce] is omitted.
+  String _signInMessageNonce(final String? nonce) {
+    return nonce ?? Random.secure().nextInt(0xFFFFFFFF).toString();
+  }
+
+  /// Formats [resources].
+  String? _signInMessageResources(final List<String>? resources) {
+    if (resources != null && resources.isNotEmpty) {
+      const String separator = '\n- ';
+      return '$separator${resources.join(separator)}';
+    }
+    return null;
+  }
+
+  /// Creates a sign in message.
+  String _signInMessage(
+    final SignInMessage message,
+  ) {
+    final String domain = message.domain;
+    final String address = _signInMessageAddress(message.address);
+    final String? statement = message.statement;
+    final Uri uri = message.uri ?? Uri.https(domain);
+    final int version = message.version ?? 1;
+    final String chainId = _signInMessageChainId(message.chainId);
+    final String nonce = _signInMessageNonce(message.nonce);
+    final DateTime issuedAt = message.issuedAt ?? DateTime.now();
+    final DateTime? expirationTime = message.expirationTime;
+    final DateTime? notBefore = message.notBefore;
+    final String? requestId = message.requestId;
+    final String? resources = _signInMessageResources(message.resources);
+    final List<String> signInMessage = [
+      '$domain wants you to sign in with your Solana account:',
+      'solana:$chainId:$address\n',
+      if (statement != null)
+        '$statement\n',
+      'URI: $uri',
+      'Version: $version',
+      'Nonce: $nonce',
+      'Issued At: ${issuedAt.toUtc().toIso8601String()}',
+      if (expirationTime != null)
+        'Expiration Time: ${expirationTime.toUtc().toIso8601String()}',
+      if (notBefore != null)
+        'Not Before: ${notBefore.toUtc().toIso8601String()}',
+      if (requestId != null)
+        'Request ID: $requestId',
+      'Chain ID: solana:$chainId',
+      if (resources != null)
+        'Resources: $resources',
+    ];
+    return _serializeMessages([signInMessage.join('\n')]).first;
+  }
+
   /// Runs [callback] for a local wallet endpoint. If a local wallet cannot be found, attempt a 
-  /// remote connection with [adapter.hostAuthority].
+  /// remote connection with [SolanaWalletAdapter.hostAuthority].
   Future<T> _association<T>(
-    final AssociationCallback<T> callback,
+    final Future<T> Function(SolanaWalletAdapterConnection connection) callback,
   ) async {
     try {
       return await adapter.localAssociation(callback);
@@ -1033,19 +1107,20 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     }
   }
 
-  /// {@macro solana_wallet_adapter.signTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signTransactions}
   Future<SignTransactionsResult> _signTransactionsHandler(
     final List<Transaction> transactions,
-  ) => _association((final WalletAdapterConnection connection) async {
+  ) => _association((final SolanaWalletAdapterConnection connection) async {
     await adapter.reauthorizeOrAuthorizeHandler(connection);
     final List<String> encodedTransactions = await _serializeTransactions(transactions);
     return adapter.signTransactionsHandler(
       connection, 
       transactions: encodedTransactions,
+      skipReauthorize: true,
     );
   });
 
-  /// {@macro solana_wallet_adapter.signTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signTransactions}
   Future<SignTransactionsResult> _signTransactionsWithSignersHandler(
     final List<TransactionWithSigners> transactions,
   ) async {
@@ -1060,7 +1135,7 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ); 
   }
 
-  /// {@macro solana_wallet_adapter.signAndSendTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signAndSendTransactions}
   Future<SignAndSendTransactionsResult> _signAndSendTransactionsHandler(
     final List<Transaction> transactions, {
     final SignAndSendTransactionsConfig? config,
@@ -1071,10 +1146,11 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
       connection,
       transactions: encodedTransactions,
       config: config,
+      skipReauthorize: true,
     );
   });
 
-  /// {@macro solana_wallet_adapter.signAndSendTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signAndSendTransactions}
   Future<SignAndSendTransactionsResult> _signAndSendTransactionsWithSignersHandler(
     final List<TransactionWithSigners> transactions, {
     final Commitment? commitment,
@@ -1096,14 +1172,18 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     
     /// Wait for signature notifications.
     if (commitment != null) {
-      await _confirmTransactions(sendResult.signatures, commitment: commitment);
+      await _confirmTransactions(
+        transactions: _splitTransactionsWithSigners(transactions).transactions,
+        signatures: sendResult.signatures, 
+        commitment: commitment,
+      );
     }
 
     /// Return the transaction signatures.
     return sendResult;
   }
 
-  /// {@macro solana_wallet_adapter.signAndSendTransactions}
+  /// {@macro solana_wallet_adapter_platform_interface.signAndSendTransactions}
   Future<SignAndSendTransactionsResult> _signAndSendTransactionsPolyfill(
     final List<Transaction> transactions, {
     final Commitment? commitment = Commitment.confirmed,
@@ -1137,23 +1217,42 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     
     /// Wait for signature notifications.
     if (commitment != null) {
-      await _confirmTransactions(result.signatures, commitment: commitment);
+      await _confirmTransactions(
+        transactions: transactions,
+        signatures: result.signatures, 
+        commitment: commitment,
+      );
     }
     
     /// Return the transaction signatures.
     return result;
   }
 
-  /// {@macro solana_wallet_adapter.signMessages}
+  /// {@macro solana_wallet_adapter_platform_interface.signMessages}
   Future<SignMessagesResult> _signMessagesHandler(
     final MessagesAndAddresses data,
+  ) {
+    return _association((connection) async {
+      await adapter.reauthorizeOrAuthorizeHandler(connection);
+      return adapter.signMessagesHandler(
+        connection, 
+        messages: _serializeMessages(data.messages), 
+        addresses: _serializeAddresses(data.addresses),
+        skipReauthorize: true,
+      );
+    });
+  }
+
+  /// {@macro solana_wallet_adapter_platform_interface.signMessages}
+  Future<SignMessagesResult> _signInMessageHandler(
+    final SignInMessage data,
   ) => _association((connection) async {
     await adapter.reauthorizeOrAuthorizeHandler(connection);
-    final List<String> encodedMessages = _serializeMessages(data.messages);
     return adapter.signMessagesHandler(
       connection, 
-      messages: encodedMessages, 
-      addresses: data.addresses.map((address) => address.toBase64()).toList(growable: false),
+      messages: [_signInMessage(data)], 
+      addresses: const [],
+      skipReauthorize: true,
     );
   });
 
@@ -1190,29 +1289,69 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
           : null,
       );
     }
+
     return SignAndSendTransactionsResult(
       signatures: signatures,
     );
   }
 
   /// Confirms transaction [signatures] for the provided [commitment] level.
-  Future<List<SignatureNotification>> _confirmTransactions(
-    final List<String?> signatures, {
+  Future<List<SignatureNotification>> _confirmTransactions({
+    required final List<Transaction> transactions,
+    required final List<String?> signatures, 
     required final Commitment commitment,
-  }) {
-    final List<Future<SignatureNotification>> notifications = [];
+  }) async {
+    assert(transactions.length == signatures.length);
+
+    // Check for failed transactions and convert signatures from base-64 to base-58.
+    final List<String> txSignatures = [];
     for (final String? signature in signatures) {
-      if (signature != null) {
-        notifications.add(
-          connection.confirmTransaction(
-            base58.encode(base64.decode(signature)),
-            config: ConfirmTransactionConfig(
-              commitment: commitment,
-            ),
-          ),
-        );
+      if (signature != null) { 
+        txSignatures.add(base64ToBase58(signature));
+      } else {
+        throw const TransactionException('Transaction not submitted to network,');
       }
     }
+
+    // Subscribe to `confirm transaction` notifications.
+    final List<Future<SignatureNotification>> notifications = [];
+    for (int i = 0; i < transactions.length; ++i) {
+      final Transaction tx = transactions[i];
+      final String signature = txSignatures[i];
+      notifications.add(
+        connection.confirmTransaction(
+          signature,
+          blockhash: tx.blockhash,
+          config: ConfirmTransactionConfig(
+            commitment: commitment,
+          ),
+        ),
+      );
+    }
+
+    // Get the current transaction signature statuses.
+    final List<SignatureStatus?> statuses = await connection.getSignatureStatuses(
+      txSignatures,
+      config: const GetSignatureStatusesConfig(
+        searchTransactionHistory: true,
+      ),
+    );
+
+    // Check for confirmed transactions.
+    for (int i = 0; i < transactions.length; ++i) {
+      final SignatureStatus? status = statuses[i];
+      if (status != null) {
+        final Future<SignatureNotification> notification = notifications[i];
+        notification.ignore();
+        if (status.err != null) {
+          throw const TransactionException('Transaction status error.');
+        } else {
+          notifications[i] = Future.value(const SignatureNotification(err: null));
+        }
+      }
+    }
+    
+    // Wait for the remaining confirmations.
     return Future.wait(
       notifications, 
       eagerError: true,
@@ -1235,7 +1374,7 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     );
   }
 
-  /// Serializes [transactions] into a list of base-64 encoded strings.
+  /// Serializes [transactions] into a list of encoded strings.
   Future<List<String>> _serializeTransactions(
     final Iterable<Transaction> transactions,
   ) async {
@@ -1250,22 +1389,37 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
         lastValidBlockHeight: blockhashInfo.lastValidBlockHeight,
         feePayer: transaction.feePayer ?? PublicKey.tryFromBase64(connectedAccount?.address),
       );
-      encodedTransactions.add(
-        tx.serialize(config).getString(BufferEncoding.base64),
-      );
+      if (SolanaWalletAdapterPlatform.instance.isDesktop) {
+        encodedTransactions.add(tx.serializeMessage().getString(BufferEncoding.base58));
+      } else {
+        encodedTransactions.add(tx.serialize(config).getString(BufferEncoding.base64));
+      }
     }
     return encodedTransactions;
   }
 
-  /// Serializes [messages] into a list of base-64 encoded strings.
-  List<String> _serializeMessages(final Iterable<Message> messages) {
-    final List<String> encodedMessages = [];
-    for (final Message message in messages) {
-      encodedMessages.add(
-        message.serialize().getString(BufferEncoding.base64),
-      );
+  /// Serializes [messages] into a list of encoded strings.
+  List<String> _serializeMessages(final Iterable<String> messages) {
+    if (SolanaWalletAdapterPlatform.instance.isDesktop) {
+      return messages.toList(growable: false);
+    } else {
+      return messages.map((message) => base64UrlEncode(message.codeUnits)).toList(growable: false);
     }
-    return encodedMessages;
+  }
+
+  /// Serializes [addresses] into a list of encoded strings.
+  List<String> _serializeAddresses(final Iterable<PublicKey> addresses) {
+    if (SolanaWalletAdapterPlatform.instance.isDesktop) {
+      return addresses.map((address) => address.toBase58()).toList(growable: false);
+    } else if (addresses.isEmpty) {
+      final String? address = connectedAccount?.address;
+      if (address != null) {
+        return [address];
+      } else {
+        throw const SolanaWalletAdapterException('No addresses found.');
+      }
+    }
+    return addresses.map((address) => address.toBase64()).toList(growable: false);
   }
 
   /// Signs each of the [signedPayloads] with the corresponding `signers`.
@@ -1337,7 +1491,9 @@ class SolanaWalletProviderState extends State<SolanaWalletProvider> with SolanaW
   }
 
   /// Calls for the widget to be rebuilt.
-  void _onStateChanged() => setState(() {});
+  void _onStateChanged() { 
+    if (mounted) setState(() {}); 
+  }
 
   /// Returns the widget state of the closest [SolanaWalletProvider] instance that encloses the 
   /// provided context.
@@ -1370,9 +1526,9 @@ mixin SolanaWalletProviderMixin {
   /// {@macro solana_wallet_adapter.SolanaWalletAdapter}
   SolanaWalletAdapter get adapter;
 
-  /// {@macro solana_wallet_adapter.authorizeResult}
+  /// {@macro solana_wallet_adapter_platform_interface.authorizeResult}
   AuthorizeResult? get authorizeResult;
 
-  /// {@macro solana_wallet_adapter.connectedAccount}
+  /// {@macro solana_wallet_adapter_platform_interface.connectedAccount}
   Account? get connectedAccount;
 }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../layouts/solana_wallet_grid.dart';
 import '../themes/solana_wallet_card_theme.dart';
 import '../themes/solana_wallet_theme_extension.dart';
+import '../../src/widgets/solana_wallet_default_text_style.dart';
 
 
 /// Solana Wallet Card
@@ -21,11 +22,11 @@ class SolanaWalletCard extends StatefulWidget {
     this.padding,
     this.headerColor,
     this.headerPadding,
+    this.divider,
     this.bodyColor,
     this.bodyPadding,
-    this.spacing,
     this.shape,
-    this.title,
+    this.header,
     required this.body,
   });
 
@@ -44,20 +45,20 @@ class SolanaWalletCard extends StatefulWidget {
   /// The header section's padding.
   final EdgeInsets? headerPadding;
 
+  /// The widget placed between the [header] and [body].
+  final Widget? divider;
+
   /// The body section's background color.
   final Color? bodyColor;
 
   /// The body section's padding.
   final EdgeInsets? bodyPadding;
 
-  /// The vertical space between the [title] and [body].
-  final double? spacing;
-
   /// The shape.
   final ShapeBorder? shape;
 
   /// The heading.
-  final Widget? title;
+  final Widget? header;
 
   /// The main content.
   final Widget body;
@@ -74,7 +75,7 @@ class _SolanaWalletCardState extends State<SolanaWalletCard> {
 
   /// The default edge insets.
   EdgeInsets get _defaultInsets => const EdgeInsets.symmetric(
-    horizontal: SolanaWalletGrid.x2,
+    horizontal: SolanaWalletGrid.x3,
     vertical: SolanaWalletGrid.x3,
   );
 
@@ -83,22 +84,22 @@ class _SolanaWalletCardState extends State<SolanaWalletCard> {
     
     final ThemeData theme = Theme.of(context);
     final SolanaWalletCardTheme? cardTheme = SolanaWalletThemeExtension.of(context)?.cardTheme;
-    final TextStyle? titleStyle = cardTheme?.titleTextStyle ?? theme.textTheme.titleLarge;
-    final TextStyle? bodyStyle = cardTheme?.bodyTextStyle ?? theme.textTheme.bodyLarge;
-    final Widget? title = widget.title;
     
-    final Widget header = _SolanaWalletCardSection(
+    final Widget? heading = widget.header;
+    final Widget? header = heading != null ? _SolanaWalletCardSection(
       color: widget.headerColor ?? cardTheme?.headerColor,
       padding: widget.headerPadding ?? cardTheme?.headerPadding,
-      child: widget.title,
-    );
+      textStyle: cardTheme?.headerTextStyle ?? theme.textTheme.titleLarge,
+      child: heading,
+    ) : null;
 
     final Widget body = _SolanaWalletCardSection(
       color: widget.bodyColor ?? cardTheme?.bodyColor,
       padding: widget.bodyPadding ?? cardTheme?.bodyPadding,
+      textStyle: cardTheme?.bodyTextStyle ?? theme.textTheme.bodyLarge,
       child: widget.body,
     );
-    
+
     return SafeArea(
       child: Card(
         color: widget.color ?? cardTheme?.color,
@@ -110,25 +111,11 @@ class _SolanaWalletCardState extends State<SolanaWalletCard> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (title != null)
-                titleStyle != null
-                  ? DefaultTextStyle(
-                      style: titleStyle, 
-                      textAlign: TextAlign.center,
-                      child: header,
-                    )
-                  : header,
-              if (title != null)
-                SizedBox(
-                  height: widget.spacing ?? cardTheme?.spacing ?? SolanaWalletGrid.x3,
-                ),
-              bodyStyle != null
-                ? DefaultTextStyle(
-                    style: bodyStyle, 
-                    textAlign: TextAlign.center,
-                    child: body,
-                  )
-                : body,
+              if (header != null)
+                header,
+              if (header != null && widget.divider != null)
+                widget.divider ?? const SizedBox.shrink(),
+              body,
             ],
           ),
         ),
@@ -143,10 +130,11 @@ class _SolanaWalletCardState extends State<SolanaWalletCard> {
 
 class _SolanaWalletCardSection extends StatelessWidget {
 
-  /// Creates a padded colored box.
+  /// Creates a padded, colored box.
   const _SolanaWalletCardSection({
     required this.color,
     required this.padding,
+    required this.textStyle,
     required this.child,
   });
 
@@ -156,16 +144,22 @@ class _SolanaWalletCardSection extends StatelessWidget {
   /// The content padding.
   final EdgeInsets? padding;
 
+  /// Default text style.
+  final TextStyle? textStyle;
+
   /// The content.
-  final Widget? child;
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     return ColoredBox(
       color: color ?? Colors.transparent,
       child: Padding(
         padding: padding ?? const EdgeInsets.all(0),
-        child: child,
+        child: SolanaWalletDefaultTextStyle(
+          style: textStyle, 
+          child: child,
+        ),
       ),
     );
   }

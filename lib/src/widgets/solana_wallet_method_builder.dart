@@ -2,24 +2,25 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-import '../models/solana_wallet_method_state.dart';
+import 'package:flutter/scheduler.dart';
+import '../../solana_wallet_provider.dart';
 import '../../src/widgets/solana_wallet_animated_switcher.dart';
 
 
 /// Types
 /// ------------------------------------------------------------------------------------------------
 
-typedef MethodBuilder<T, U> = Widget Function(
+typedef MethodBuilder<T> = Widget Function(
   BuildContext, 
   AsyncSnapshot<T>, 
-  SolanaWalletMethodController<U>,
+  SolanaWalletMethodController,
 );
 
 
 /// Solana Wallet Method Controller
 /// ------------------------------------------------------------------------------------------------
 
-mixin SolanaWalletMethodController<U> {
+mixin SolanaWalletMethodController {
 
   /// Triggers the method call.
   void call();
@@ -32,18 +33,20 @@ mixin SolanaWalletMethodController<U> {
 /// Solana Wallet Method Builder
 /// ------------------------------------------------------------------------------------------------
 
-/// An animated [FutureBuilder] that invokes [method] with [value].
+/// An widget that invokes [method] with [value] and animates state changes.
 /// 
 /// If [auto] is false the method must be invoked by [SolanaWalletMethodController.call].
 class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
   
-  /// Creates an animated [FutureBuilder] that invokes [method] with [value] and calls [onComplete] 
-  /// or [onCompleteError] once finished.
+  /// Creates a widget that invokes [method] with [value]. The rendered view is provided by 
+  /// [builder] for the current state. The widget animates view changes and completes by calling 
+  /// [onComplete] or [onCompleteError].
   const SolanaWalletMethodBuilder({
     super.key,
     required this.value,
     required this.method,
     required this.builder,
+    this.dismissState,
     this.onComplete,
     this.onCompleteError,
     this.auto = true,
@@ -56,7 +59,11 @@ class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
   final Future<T> Function(U value) method;
 
   /// Builds the widget to display for each state.
-  final MethodBuilder<T, U> builder;
+  final MethodBuilder<T> builder;
+
+  /// The state in which a call to [SolanaWalletProvider.close] will be made to automatically 
+  /// dismiss the action.
+  final DismissState? dismissState;
 
   /// The callback function invoked when [method] completes successfully.
   final void Function(T value)? onComplete;
@@ -65,7 +72,7 @@ class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
   final void Function(Object error, [StackTrace? stackTrace])? onCompleteError;
 
   /// True if the method should be invoked immediately. Otherwise 
-  /// [SolanaWalletMethodController.call] is required to invoke the [method].
+  /// [SolanaWalletMethodController.call] must be called to invoke the [method].
   final bool auto;
 
   @override
@@ -78,58 +85,106 @@ class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
 
 class _SolanaWalletMethodBuilderState<T, U> 
   extends State<SolanaWalletMethodBuilder<T, U>> 
-    with SolanaWalletMethodController<U> {
+    with SolanaWalletMethodController {
   
-  /// The [widget.method]'s result.
-  Future<T>? _future;
+  /// The [SolanaWalletMethodBuilder.method] call's return value.
+  T? _data;
 
-  /// The current state of the [widget.method] call.
+  /// The [SolanaWalletMethodBuilder.method] call's error value.
+  Object? _error;
+
+  /// The [SolanaWalletMethodBuilder.method] call's error stack trace.
+  StackTrace? _stackTrace;
+
+  /// True if the method has been called;
+  bool _invoked = false;
+
+  /// The [SolanaWalletMethodBuilder.method] call's current state.
   SolanaWalletMethodState _state = SolanaWalletMethodState.none;
 
   @override
   SolanaWalletMethodState get state => _state;
 
+  /// An invalid data exception.
+  SolanaWalletProviderException get _invalidException => const SolanaWalletProviderException(
+    'Invalid data', 
+    code: SolanaWalletProviderExceptionCode.invalid,
+  );
+
   @override
   void initState() {
     super.initState();
     if (widget.auto) {
-      call();
+      _state = SolanaWalletMethodState.progress;
+      SchedulerBinding.instance.addPostFrameCallback((_) => call());
     }
   }
 
   @override
-  void call() {
-    if (_future == null) {
-      _future ??= widget.method(widget.value)
-        .catchError(_onCompleteError)
-        .then(_onComplete);
-      _setMethodState(SolanaWalletMethodState.progress);
+  void call() async {
+    if (!_invoked) {
+      _invoked = true;
+      try {
+        _setMethodState(SolanaWalletMethodState.progress);
+        final T result = _data = await widget.method(widget.value);
+        _setMethodState(SolanaWalletMethodState.success);
+        widget.onComplete?.call(result);
+      } catch (error, stackTrace) {
+        _error = error;
+        _stackTrace = stackTrace;
+        if (!_isDismissedException(error)) {
+          _setMethodState(SolanaWalletMethodState.error);
+        }
+        widget.onCompleteError?.call(error, stackTrace);
+      }
     }
   }
 
-  /// Updates [_state] and calls [widget.onComplete] with [value].
-  Future<T> _onComplete(final T value) {
-    _setMethodState(SolanaWalletMethodState.success);
-    widget.onComplete?.call(value);
-    return Future.value(value);
-  }
-
-  /// Updates [_state] and calls [widget.onCompleteError] with [error].
-  Future<T> _onCompleteError(final Object error, [final StackTrace? stackTrace]) {
-    _setMethodState(SolanaWalletMethodState.error);
-    widget.onCompleteError?.call(error, stackTrace);
-    return Future.error(error, stackTrace);
+  /// Returns true if [error] is a `dismissed` or `cancelled` exception.
+  bool _isDismissedException(final Object error) {
+    return (error is SolanaWalletProviderException
+      && error.code == SolanaWalletProviderExceptionCode.dismissed)
+      || (error is SolanaWalletAdapterException
+        && error.code == SolanaWalletAdapterExceptionCode.cancelled);
   }
 
   /// Sets [_state] and marks the widget as changed to schedule a call to [build].
   void _setMethodState(final SolanaWalletMethodState state) {
-    _state = state;
-    if (mounted) setState(() {});
+    final DismissState? dismissState = widget.dismissState;
+    if (dismissState != null && dismissState.equals(state)) {
+      SolanaWalletProvider.close(context);
+    } else if (_state != state) {
+      _state = state;
+      if (mounted) setState(() {});
+    }
   }
 
-  /// Wraps [widget.builder] is an [AnimatedSwitcher] to animate changes in [state].
-  Widget _futureBuilder(final BuildContext context, final AsyncSnapshot<T> snapshot) {
-    final Widget child = widget.builder(context, snapshot, this);
+  /// Creates an [AsyncSnapshot] for the current [_state].
+  AsyncSnapshot<T> _snapshot() {
+    switch(_state) {
+      case SolanaWalletMethodState.none:
+        return const AsyncSnapshot.nothing();
+      case SolanaWalletMethodState.progress:
+        return const AsyncSnapshot.waiting();
+      case SolanaWalletMethodState.success:
+      case SolanaWalletMethodState.error:
+        final T? data = _data;
+        return data != null
+          ? AsyncSnapshot<T>.withData(
+              ConnectionState.done, 
+              data,
+            )
+          : AsyncSnapshot<T>.withError(
+              ConnectionState.done, 
+              _error ?? _invalidException, 
+              _stackTrace ?? StackTrace.current,
+            );
+    }
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final Widget child = widget.builder(context, _snapshot(), this);
     return SolanaWalletAnimatedSwitcher(
       child: child.key != null 
         ? child 
@@ -137,14 +192,6 @@ class _SolanaWalletMethodBuilderState<T, U>
             key: ValueKey(_state), 
             child: child,
           ),
-    );
-  }
-
-  @override
-  Widget build(final BuildContext context) {
-    return FutureBuilder(
-      future: _future,
-      builder: _futureBuilder,
     );
   }
 }

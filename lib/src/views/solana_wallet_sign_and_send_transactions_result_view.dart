@@ -1,15 +1,17 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'dart:convert' show base64;
 import 'package:flutter/material.dart';
+import 'package:solana_common/config/cluster.dart';
+import 'package:solana_common/utils/convert.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart' 
-  show Cluster, SignAndSendTransactionsResult, SolanaWalletAdapter, SolanaWalletAdapterPlatform;
-import 'package:solana_wallet_provider/src/layouts/solana_wallet_grid.dart';
-import 'package:solana_wallet_provider/src/views/solana_wallet_list_view.dart';
-import 'package:solana_web3/solana_web3.dart' show base58;
+  show SignAndSendTransactionsResult, SolanaWalletAdapter, SolanaWalletAdapterPlatform;
+import 'solana_wallet_content_view.dart';
+import 'solana_wallet_state_view.dart';
 import '../themes/solana_wallet_theme_extension.dart';
-import '../views/solana_wallet_method_view.dart';
+import '../widgets/solana_wallet_icon_paint.dart';
+import '../../src/models/solana_wallet_method_state.dart';
+import '../../src/widgets/solana_wallet_icon_painter.dart';
 
 
 /// Solana Wallet Sign and Send Transactions Result View
@@ -19,22 +21,18 @@ import '../views/solana_wallet_method_view.dart';
 @immutable
 class SolanaWalletSignAndSendTransactionsResultView extends StatefulWidget {
   
-  /// Creates a [SolanaWalletMethodView] with a link to view the transaction [result].
+  /// Creates a [SolanaWalletContentView] that links to the transaction [result].
   const SolanaWalletSignAndSendTransactionsResultView({
     super.key,
     required this.result,
     required this.cluster,
-    this.message,
   });
 
-  /// The sign and send transactions result.
+  /// The sign and send transaction result.
   final SignAndSendTransactionsResult? result;
 
   /// The connected cluster.
   final Cluster cluster;
-
-  /// The success message.
-  final String? message;
 
   @override
   State<SolanaWalletSignAndSendTransactionsResultView> createState() 
@@ -49,42 +47,52 @@ class _SolanaWalletSignAndSendTransactionsResultViewState
   extends State<SolanaWalletSignAndSendTransactionsResultView> {
   
   /// Creates a Solana explorer uri for a transaction [signature].
-  String _uri(final String signature) {
-    return 'https://explorer.solana.com/tx/$signature?cluster=${widget.cluster.name}';
-  }
+  Uri _uri(final String signature) 
+    => Uri(
+      scheme: 'https',
+      host: 'explorer.solana.com',
+      path: 'tx/$signature',
+      queryParameters: { 'cluster': widget.cluster.name },
+    );
 
   /// Opens a tab for each of the transaction [signatures].
   void _onPressed(final List<String?> signatures) {
     for (final String? signature in signatures) {
       if (signature != null) {
-        final String b58Signature = base58.encode(base64.decode(signature));
-        SolanaWalletAdapterPlatform.instance.openUri(_uri(b58Signature));
+        final String b58Signature = base64ToBase58(signature);
+        SolanaWalletAdapterPlatform.instance.openUri(_uri(b58Signature), '_blank');
       }
     }
   }
 
-  /// Builds a view to display the result.
-  Widget _build(final List<String?> signatures) {
-    return SolanaWalletListView(
-      spacing: SolanaWalletGrid.x3,
-      children: [
-        SolanaWalletMethodView.success(widget.message),
-        TextButton(
-          style: SolanaWalletThemeExtension.of(context)?.secondaryButtonStyle,
-          onPressed: () => _onPressed(signatures), 
-          child: const Text('View Transactions'),
-        ),
-      ],
+  /// Builds a view that display the result.
+  Widget _successBuilder(final List<String?> signatures) {
+    return SolanaWalletStateView.success(
+      message: 'Your transactions have been processed.',
+      body: TextButton(
+        style: SolanaWalletThemeExtension.of(context)?.secondaryButtonStyle,
+        onPressed: () => _onPressed(signatures), 
+        child: const Text('View Transactions'),
+      ),
+    );
+  }
+
+  /// Builds a view that display an error.
+  Widget _errorBuilder() {
+    return SolanaWalletStateView(
+      iconBuilder: (_, __) => const SolanaWalletIconPaint(painter: SolanaWalletBangIcon.new),
+      state: SolanaWalletMethodState.error,
+      message: const Text('No Transactions found.'),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final List<String?> signatures = widget.result?.signatures ?? const [];
     final bool isNotEmpty = signatures.isNotEmpty 
       && signatures.any((signature) => signature != null);
     return isNotEmpty
-      ? _build(signatures)
-      : const Text('No Transactions found.');
+      ? _successBuilder(signatures)
+      : _errorBuilder();
   }
 }

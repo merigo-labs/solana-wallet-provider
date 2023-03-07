@@ -25,7 +25,7 @@ class App extends StatelessWidget {
               // 3. Access SolanaWalletProvider.
               final provider = SolanaWalletProvider.of(context);
               return TextButton(
-                onPressed: () => provider.authorize(context),
+                onPressed: () => provider.connect(context),
                 child: const Center(
                   child: Text('Example App'),
                 ),

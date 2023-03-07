@@ -29,13 +29,13 @@ class SolanaWalletButton extends StatefulWidget {
     this.connectStyle,
     this.connectBuilder,
     this.connectChild,
-    this.connectDismissMode,
+    this.connectDismissState,
     this.onDisconnect,
     this.onDisconnectError,
     this.disconnectStyle,
     this.disconnectBuilder,
     this.disconnectChild,
-    this.disconnectDismissMode,
+    this.disconnectDismissState,
   }): assert(
     connectBuilder == null || connectChild == null,
     '[SolanaWalletButton] can define [connectBuilder] or [connectChild], but not both.'
@@ -101,8 +101,8 @@ class SolanaWalletButton extends StatefulWidget {
   /// If [connectChild] is provided [connectBuilder] must be null.
   final Widget? connectChild;
 
-  /// The modal bottom sheet dismiss mode when connecting.
-  final DismissMode? connectDismissMode;
+  /// The auto dismiss state when connecting.
+  final DismissState? connectDismissState;
 
   /// Called when the application disconnects from a wallet.
   final void Function(DeauthorizeResult result)? onDisconnect;
@@ -123,8 +123,8 @@ class SolanaWalletButton extends StatefulWidget {
   /// If [disconnectChild] is provided [disconnectBuilder] must be null.
   final Widget? disconnectChild;
 
-  /// The modal bottom sheet dismiss mode when disconnecting.
-  final DismissMode? disconnectDismissMode;
+  /// The auto dismiss state when disconnecting.
+  final DismissState? disconnectDismissState;
 
   @override
   State<SolanaWalletButton> createState() => _SolanaWalletButtonState();
@@ -141,20 +141,21 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
     return account != null
       ? () => provider.disconnect(
           context,
-          dismissMode: widget.disconnectDismissMode,
+          dismissState: widget.disconnectDismissState,
         )
       : () => provider.connect(
           context,
-          apps: [
-            SolanaWalletAppInfo.phantom,
-            SolanaWalletAppInfo.solflare,
+          options: SolanaWalletAdapterPlatform.instance.apps ?? const [],
+          downloadOptions: const [
+            AppInfo.phantom,
+            AppInfo.solflare,
           ],
           hostAuthority: widget.hostAuthority,
-          dismissMode: widget.connectDismissMode,
+          dismissState: widget.connectDismissState,
         );
   }
 
-  /// Builds the button's child widget when connected to [account].
+  /// Builds the button's child widget when the application is connected to [account].
   Widget _connectBuilder(final BuildContext context, final Account account) {
     return SolanaWalletTextOverflow(text: account.addressBase58);
   }

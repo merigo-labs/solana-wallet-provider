@@ -1,3 +1,11 @@
+## 0.0.5+1
+
+* Update example.
+
+## 0.0.5
+
+* Prepare for web support.
+
 ## 0.0.4
 
 * Add dismiss mode to modal open.

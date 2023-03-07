@@ -3,12 +3,9 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../views/solana_wallet_account_list_view.dart';
 import '../../solana_wallet_provider.dart';
-import '../widgets/solana_wallet_text_overflow.dart';
-import '../widgets/solana_wallet_copy_text.dart';
-import '../../src/layouts/solana_wallet_grid.dart';
-import '../../src/layouts/solana_wallet_thickness.dart';
-import '../../src/widgets/solana_wallet_icon_painter.dart';
+import '../../src/views/solana_wallet_opening_wallet_view.dart';
 
 
 /// Solana Wallet Disconnect Card
@@ -25,6 +22,7 @@ class SolanaWalletDisconnectCard extends StatefulWidget {
     required this.accounts,
     this.onTapAccount,
     this.onTapDisconnect,
+    this.dismissState,
     this.onComplete,
     this.onCompleteError,
   });
@@ -40,6 +38,10 @@ class SolanaWalletDisconnectCard extends StatefulWidget {
 
   /// Called when the disconnect button is pressed.
   final VoidCallback? onTapDisconnect;
+
+  /// The [SolanaWalletMethodState] in which the [SolanaWalletProvider] modal should be 
+  /// automatically closed.
+  final DismissState? dismissState;
 
   /// The callback function invoked when disconnecting completes successfully.
   final void Function(DeauthorizeResult? value)? onComplete;
@@ -72,7 +74,7 @@ class _SolanaWalletDisconnectCardState extends State<SolanaWalletDisconnectCard>
     return provider.adapter.deauthorize();
   }
 
-  /// Sets [_selectedAccount] and calls [widget.onTapAccount].
+  /// Sets [_selectedAccount] and calls [SolanaWalletDisconnectCard.onTapAccount].
   void _onTapAccount(final Account account) {
     if (_selectedAccount != account) {
       if (mounted) setState(() => _selectedAccount = account);
@@ -80,75 +82,42 @@ class _SolanaWalletDisconnectCardState extends State<SolanaWalletDisconnectCard>
     }
   }
 
-  /// Creates a list tile for the provided [account].
-  Widget _itemBuilder(final Account account) {
-    final String address = account.addressBase58;
-    return SolanaWalletCopyText(
-      text: address,
-      onLongPress: true,
-      child: ListTile(
-        onTap: () => _onTapAccount(account),
-        title: Text(
-          account.label ?? 'Wallet',
-        ),
-        subtitle: SolanaWalletTextOverflow(
-          text: address,
-        ),
-        trailing: _selectedAccount == account 
-          ? CustomPaint(
-            size: const Size.square(SolanaWalletGrid.x1),
-            painter: SolanaWalletTickIcon(
-              color: Theme.of(context).indicatorColor, 
-              strokeWidth: SolanaWalletThickness.x1,
-              withBorder: false,
-            ),
-          )
-          : null,
-      ),
-    );
-  }
-
-  /// Builds a widget for [controller.state].
+  /// Builds a widget for [SolanaWalletMethodController.state].
   Widget _builder(
     final BuildContext context, 
     final AsyncSnapshot<DeauthorizeResult> snapshot,
-    final SolanaWalletMethodController<dynamic> controller,
+    final SolanaWalletMethodController controller,
   ) {
     switch (controller.state) {
       case SolanaWalletMethodState.none:
         return SolanaWalletCard(
-          title: const Text('Accounts'),
-          body: SolanaWalletListView(
-            children: [
-              SolanaWalletListView(
-                children: widget.accounts,
-                builder: _itemBuilder,
-              ),
-              TextButton(
-                style: SolanaWalletThemeExtension.of(context)?.primaryButtonStyle,
-                onPressed: () => controller.call(), // trigger _method()
-                child: const Text('Disconnect'),
-              ),
-            ],
+          body: SolanaWalletAccountListView(
+            title: const Text('Accounts'),
+            accounts: widget.accounts,
+            onPressed: _onTapAccount,
+            selectedAccount: _selectedAccount,
+            body: TextButton(
+              style: SolanaWalletThemeExtension.of(context)?.primaryButtonStyle,
+              onPressed: () => controller.call(), // trigger _method()
+              child: const Text('Disconnect'),
+            ),
           ),
         );
       case SolanaWalletMethodState.progress:
-        return SolanaWalletCard(
-          body: SolanaWalletMethodView.progress(
-            'Disconnecting wallet.',
-          ),
+        return const SolanaWalletCard(
+          body: SolanaWalletOpeningWalletView(),
         );
       case SolanaWalletMethodState.success:
         return SolanaWalletCard(
-          body: SolanaWalletMethodView.success(
-            'Wallet disconnected.',
+          body: SolanaWalletStateView.success(
+            title: 'Wallet Disconnected',
           ),
         );
       case SolanaWalletMethodState.error:
         return SolanaWalletCard(
-          body: SolanaWalletMethodView.error(
-            snapshot.error,
-            'Failed to disconnect.',
+          body: SolanaWalletStateView.error(
+            error: snapshot.error,
+            message: 'Failed to disconnect.',
           ),
         );
     }
@@ -160,6 +129,7 @@ class _SolanaWalletDisconnectCardState extends State<SolanaWalletDisconnectCard>
       value: null, 
       method: _method, 
       builder: _builder,
+      dismissState: widget.dismissState,
       onComplete: widget.onComplete,
       onCompleteError: widget.onCompleteError,
       auto: false,

@@ -41,7 +41,7 @@ class SolanaWalletQrCodeTheme with Diagnosticable {
   /// The border radius.
   final BorderRadiusGeometry? borderRadius;
 
-  /// Linearly interpolate between two [SolanaWalletQrCodeTheme].
+  /// Linearly interpolate between two [SolanaWalletQrCodeTheme]s.
   static SolanaWalletQrCodeTheme lerp(
     final SolanaWalletQrCodeTheme? a, 
     final SolanaWalletQrCodeTheme? b, 

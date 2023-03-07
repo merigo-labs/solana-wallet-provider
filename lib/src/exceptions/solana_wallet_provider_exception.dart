@@ -2,8 +2,17 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:flutter/foundation.dart' show immutable;
-import 'package:solana_web3/solana_web3.dart' show SolanaException;
-import '../../src/exceptions/solana_wallet_provider_exception_code.dart';
+import 'package:solana_common/exceptions/solana_exception.dart';
+
+
+/// Solana Wallet Provider Exception Codes
+/// ------------------------------------------------------------------------------------------------
+
+enum SolanaWalletProviderExceptionCode {
+  dismissed,
+  format,
+  invalid,
+}
 
 
 /// Solana Wallet Provider Exception

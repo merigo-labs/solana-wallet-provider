@@ -41,7 +41,7 @@ class _SolanaWalletCopyTextState extends State<SolanaWalletCopyText> {
   /// True if 'Copied to clipboard.' should be visible.
   bool _showMessage = false;
 
-  /// Copy [widget.text] to the clipboard and overlay a message.
+  /// Copy [SolanaWalletCopyText.text] to the clipboard and overlay a message.
   void _copyText() async {
     try {
       await Clipboard.setData(ClipboardData(text: widget.text));
@@ -50,7 +50,7 @@ class _SolanaWalletCopyTextState extends State<SolanaWalletCopyText> {
     } catch (_) {
       // Ignore errors.
     } finally {
-      setState(() => _showMessage = false);
+      if (mounted) setState(() => _showMessage = false);
     }
   }
 
