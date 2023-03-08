@@ -1,3 +1,7 @@
+## 0.0.6
+
+* Add low power mode warning option.
+
 ## 0.0.5+2
 
 * Update readme + dependencies.
