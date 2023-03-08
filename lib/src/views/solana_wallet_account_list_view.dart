@@ -74,11 +74,13 @@ class SolanaWalletAccountListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return SolanaWalletContentView(
       title: title,
-      message: SolanaWalletListView<Account>(
-        spacing: SolanaWalletGrid.x1,
-        builder: _builder,
-        children: accounts,
-      ),
+      message: accounts.isEmpty 
+        ? const Text('No connected accounts.')
+        : SolanaWalletListView<Account>(
+            spacing: SolanaWalletGrid.x1,
+            builder: _builder,
+            children: accounts,
+          ),
       body: body,
     );
   }

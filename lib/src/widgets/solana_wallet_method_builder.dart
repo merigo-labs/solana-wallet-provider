@@ -1,9 +1,11 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
+import 'dart:async' show Completer;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../../solana_wallet_provider.dart';
+import '../../src/cards/solana_wallet_low_power_mode_card.dart';
 import '../../src/widgets/solana_wallet_animated_switcher.dart';
 
 
@@ -50,6 +52,7 @@ class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
     this.onComplete,
     this.onCompleteError,
     this.auto = true,
+    this.checkLowPowerMode = false,
   });
 
   /// The value passed to [method].
@@ -75,6 +78,9 @@ class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
   /// [SolanaWalletMethodController.call] must be called to invoke the [method].
   final bool auto;
 
+  /// True if the method should paused and display a `low power mode` warning message.
+  final bool checkLowPowerMode;
+
   @override
   State<SolanaWalletMethodBuilder<T, U>> createState() => _SolanaWalletMethodBuilderState<T, U>();
 }
@@ -98,6 +104,12 @@ class _SolanaWalletMethodBuilderState<T, U>
 
   /// True if the method has been called;
   bool _invoked = false;
+
+  /// True if the widget should render a `low power mode` card.
+  bool _showLowPowerModeCard = false;
+
+  /// The user's `low power mode` warning confirmation.
+  Completer<void>? _lowPowerModeConfirmation;
 
   /// The [SolanaWalletMethodBuilder.method] call's current state.
   SolanaWalletMethodState _state = SolanaWalletMethodState.none;
@@ -125,6 +137,7 @@ class _SolanaWalletMethodBuilderState<T, U>
     if (!_invoked) {
       _invoked = true;
       try {
+        await _checkLowPowerMode();
         _setMethodState(SolanaWalletMethodState.progress);
         final T result = _data = await widget.method(widget.value);
         _setMethodState(SolanaWalletMethodState.success);
@@ -138,6 +151,25 @@ class _SolanaWalletMethodBuilderState<T, U>
         widget.onCompleteError?.call(error, stackTrace);
       }
     }
+  }
+
+  /// Check the device's power mode and await confirmation if 
+  /// [SolanaWalletMethodBuilder.checkLowPowerMode] is enabled and the device is in low power mode.
+  Future<void> _checkLowPowerMode() async {
+    if (widget.checkLowPowerMode) {
+      _showLowPowerModeCard = await SolanaWalletAdapterPlatform.instance.isLowPowerMode();
+      if (_showLowPowerModeCard) {
+        _lowPowerModeConfirmation = Completer.sync();
+        if (mounted) setState(() {});
+        return _lowPowerModeConfirmation?.future;
+      }
+    }
+  }
+
+  /// Complete low power mode confirmation.
+  void _onTapConfirm() {
+    _showLowPowerModeCard = false;
+    _lowPowerModeConfirmation?.complete();
   }
 
   /// Returns true if [error] is a `dismissed` or `cancelled` exception.
@@ -184,7 +216,12 @@ class _SolanaWalletMethodBuilderState<T, U>
 
   @override
   Widget build(final BuildContext context) {
-    final Widget child = widget.builder(context, _snapshot(), this);
+    final Widget child = _showLowPowerModeCard 
+      ? SolanaWalletLowPowerModeCard(
+          key: const ValueKey(0),
+          onPressedConfirm: _onTapConfirm,
+        )
+      : widget.builder(context, _snapshot(), this);
     return SolanaWalletAnimatedSwitcher(
       child: child.key != null 
         ? child 

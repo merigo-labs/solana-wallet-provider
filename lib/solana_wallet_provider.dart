@@ -676,8 +676,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignTransactionsResult> signTransactions(
     final BuildContext context,
     final Future<List<Transaction>> transactions, {
-    final Widget? valueHeader,
-    final Widget? methodHeader,
     final MethodBuilder<List<Transaction>>? valueBuilder,
     final MethodBuilder<SignTransactionsResult>? reviewBuilder,
     final MethodBuilder<SignTransactionsResult>? methodBuilder,
@@ -689,7 +687,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     method: _signTransactionsHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        header: valueHeader,
         body: SolanaWalletStateView.progress(
           title: 'Transaction',
           message: 'Processing transactions.',
@@ -704,9 +701,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        header: methodHeader,
-        body: const SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => const SolanaWalletCard(
+        body: SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -730,8 +726,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignTransactionsResult> signTransactionsWithSigners(
     final BuildContext context,
     final Future<List<TransactionWithSigners>> transactions, {
-    final Widget? valueHeader,
-    final Widget? methodHeader,
     final MethodBuilder<List<TransactionWithSigners>>? valueBuilder,
     final MethodBuilder<SignTransactionsResult>? reviewBuilder,
     final MethodBuilder<SignTransactionsResult>? methodBuilder,
@@ -743,7 +737,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     method: _signTransactionsWithSignersHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        header: valueHeader,
         body: SolanaWalletStateView.progress(
           title: 'Transaction',
           message: 'Processing transactions.',
@@ -758,9 +751,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        header: methodHeader,
-        body: const SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => const SolanaWalletCard(
+        body: SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -801,8 +793,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final Commitment? commitment = Commitment.confirmed,
     final SignAndSendTransactionsConfig? config,
     final bool skipErrorResponse = false,
-    final Widget? valueHeader,
-    final Widget? methodHeader,
     final MethodBuilder<List<Transaction>>? valueBuilder,
     final MethodBuilder<SignAndSendTransactionsResult>? reviewBuilder,
     final MethodBuilder<SignAndSendTransactionsResult>? methodBuilder,
@@ -819,7 +809,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ), 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        header: valueHeader,
         body: SolanaWalletStateView.progress(
           title: 'Transaction',
           message: 'Processing transactions.',
@@ -834,9 +823,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        header: methodHeader,
-        body: const SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => const SolanaWalletCard(
+        body: SolanaWalletOpeningWalletView(),
       ),
       successBuilder: _signAndSendTransactionsResultBuilder,
       errorBuilder: (_, error) => SolanaWalletCard(
@@ -860,8 +848,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     final Commitment? commitment = Commitment.confirmed,
     final SignAndSendTransactionsConfig? config,
     final bool skipErrorResponse = false,
-    final Widget? valueHeader,
-    final Widget? methodHeader,
     final MethodBuilder<List<TransactionWithSigners>>? valueBuilder,
     final MethodBuilder<SignAndSendTransactionsResult>? reviewBuilder,
     final MethodBuilder<SignAndSendTransactionsResult>? methodBuilder,
@@ -878,7 +864,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
         skipErrorResponse: skipErrorResponse,
       ), valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        header: valueHeader,
         body: SolanaWalletStateView.progress(
           title: 'Transaction',
           message: 'Processing transactions.',
@@ -893,9 +878,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        header: methodHeader,
-        body: const SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => const SolanaWalletCard(
+        body: SolanaWalletOpeningWalletView(),
       ),
       successBuilder: _signAndSendTransactionsResultBuilder,
       errorBuilder: (_, error) => SolanaWalletCard(
@@ -915,8 +899,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignMessagesResult> signMessages(
     final BuildContext context,
     final Future<MessagesAndAddresses> messages, {
-    final Widget? valueHeader,
-    final Widget? methodHeader,
     final MethodBuilder<MessagesAndAddresses>? valueBuilder,
     final MethodBuilder<SignMessagesResult>? reviewBuilder,
     final MethodBuilder<SignMessagesResult>? methodBuilder,
@@ -928,7 +910,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     method: _signMessagesHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        header: valueHeader,
         body: SolanaWalletStateView.progress(
           title: 'Message',
           message: 'Processing messages.',
@@ -943,9 +924,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        header: methodHeader,
-        body: const SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => const SolanaWalletCard(
+        body: SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -969,8 +949,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   Future<SignMessagesResult> signInMessage(
     final BuildContext context,
     final Future<SignInMessage> message, {
-    final Widget? valueHeader,
-    final Widget? methodHeader,
     final MethodBuilder<SignInMessage>? valueBuilder,
     final MethodBuilder<SignMessagesResult>? reviewBuilder,
     final MethodBuilder<SignMessagesResult>? methodBuilder,
@@ -982,7 +960,6 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     method: _signInMessageHandler, 
     valueBuilder: valueBuilder ?? stateWidgetBuilder(
       progressBuilder: (_) => SolanaWalletCard(
-        header: valueHeader,
         body: SolanaWalletStateView.progress(
           title: 'Sign In',
           message: 'Processing sign in message.',
@@ -997,9 +974,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => SolanaWalletCard(
-        header: methodHeader,
-        body: const SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => const SolanaWalletCard(
+        body: SolanaWalletOpeningWalletView(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
