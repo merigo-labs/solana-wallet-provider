@@ -3,7 +3,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../views/solana_wallet_opening_wallet_view.dart';
+import '../views/solana_wallet_progress_view.dart';
 import '../../solana_wallet_provider.dart';
 import '../../src/views/solana_wallet_authorized_view.dart';
 
@@ -191,7 +191,7 @@ class _SolanaWalletConnectCardState extends State<SolanaWalletConnectCard> {
       case AssociationType.local:
         return SolanaWalletCard(
           key: ValueKey(_associationType),
-          body: SolanaWalletOpeningWalletView(
+          body: SolanaWalletProgressView.opening(
             app: _appInfo,
           ),
         );

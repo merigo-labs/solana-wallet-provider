@@ -5,9 +5,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:solana_common/web_socket/web_socket_subscription_manager.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
 import 'package:solana_web3/exceptions/transaction_exception.dart';
-import 'package:solana_web3/rpc_config/confirm_transaction_config.dart';
+import 'package:solana_web3/rpc_config/commitment_subscribe_config.dart';
 import 'package:solana_web3/rpc_config/get_signature_statuses_config.dart';
 import 'package:solana_web3/rpc_config/send_transaction_config.dart';
 import 'package:solana_web3/rpc_models/blockhash_cache.dart';
@@ -30,7 +31,7 @@ import 'src/utils/constants.dart';
 import 'src/themes/solana_wallet_theme_extension.dart';
 import 'src/views/solana_wallet_content_view.dart';
 import 'src/views/solana_wallet_state_view.dart';
-import 'src/views/solana_wallet_opening_wallet_view.dart';
+import 'src/views/solana_wallet_progress_view.dart';
 import 'src/widgets/solana_wallet_method_builder.dart';
 import 'src/views/solana_wallet_sign_and_send_transactions_result_view.dart';
 
@@ -701,8 +702,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => const SolanaWalletCard(
-        body: SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => SolanaWalletCard(
+        body: SolanaWalletProgressView.transaction(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -751,8 +752,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => const SolanaWalletCard(
-        body: SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => SolanaWalletCard(
+        body: SolanaWalletProgressView.transaction(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -823,8 +824,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => const SolanaWalletCard(
-        body: SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => SolanaWalletCard(
+        body: SolanaWalletProgressView.transaction(),
       ),
       successBuilder: _signAndSendTransactionsResultBuilder,
       errorBuilder: (_, error) => SolanaWalletCard(
@@ -878,8 +879,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => const SolanaWalletCard(
-        body: SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => SolanaWalletCard(
+        body: SolanaWalletProgressView.transaction(),
       ),
       successBuilder: _signAndSendTransactionsResultBuilder,
       errorBuilder: (_, error) => SolanaWalletCard(
@@ -924,8 +925,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => const SolanaWalletCard(
-        body: SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => SolanaWalletCard(
+        body: SolanaWalletProgressView.message(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -974,8 +975,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     ),
     reviewBuilder: reviewBuilder,
     methodBuilder: methodBuilder ?? stateWidgetBuilder(
-      progressBuilder: (_) => const SolanaWalletCard(
-        body: SolanaWalletOpeningWalletView(),
+      progressBuilder: (_) => SolanaWalletCard(
+        body: SolanaWalletProgressView.signIn(),
       ),
       successBuilder: (_, __) => SolanaWalletCard(
         body: SolanaWalletStateView.success(
@@ -1272,6 +1273,8 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
   }
 
   /// Confirms transaction [signatures] for the provided [commitment] level.
+  /// 
+  /// Throws a [TransactionException] if any of the [transactions] cannot be confirmed.
   Future<List<SignatureNotification>> _confirmTransactions({
     required final List<Transaction> transactions,
     required final List<String?> signatures, 
@@ -1290,20 +1293,23 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
     }
 
     // Subscribe to `confirm transaction` notifications.
-    final List<Future<SignatureNotification>> notifications = [];
-    for (int i = 0; i < transactions.length; ++i) {
-      final Transaction tx = transactions[i];
-      final String signature = txSignatures[i];
-      notifications.add(
-        connection.confirmTransaction(
-          signature,
-          blockhash: tx.blockhash,
-          config: ConfirmTransactionConfig(
+    final List<Future<WebSocketSubscription<SignatureNotification>>> requests = [];
+    for (final String txSignature in txSignatures) {
+      requests.add(
+        connection.signatureSubscribe(
+          txSignature,
+          config: CommitmentSubscribeConfig(
             commitment: commitment,
           ),
         ),
       );
     }
+
+    // Wait for all subscriptions to be registered.
+    List<WebSocketSubscription<SignatureNotification>> subscriptions = await Future.wait(
+      requests, 
+      eagerError: true,
+    );
 
     // Get the current transaction signature statuses.
     final List<SignatureStatus?> statuses = await connection.getSignatureStatuses(
@@ -1313,20 +1319,30 @@ class SolanaWalletProvider extends StatefulWidget with SolanaWalletProviderMixin
       ),
     );
 
-    // Check for confirmed transactions.
+    // Resolve confirmed transactions.
+    final List<Future<SignatureNotification>> notifications = [];
     for (int i = 0; i < transactions.length; ++i) {
       final SignatureStatus? status = statuses[i];
+      final WebSocketSubscription<SignatureNotification> subscription = subscriptions[i];
       if (status != null) {
-        final Future<SignatureNotification> notification = notifications[i];
-        notification.ignore();
+        connection.signatureUnsubscribe(subscription).ignore();
         if (status.err != null) {
           throw const TransactionException('Transaction status error.');
         } else {
-          notifications[i] = Future.value(const SignatureNotification(err: null));
+          notifications.add(Future.value(const SignatureNotification(err: null)));
         }
+      } else {
+        notifications.add(connection.confirmSignatureSubscription(
+          txSignatures[i], 
+          subscription,
+          blockhash: transactions[i].blockhash,
+        ));
       }
     }
     
+    // Check that [notifications] contains all transactions.
+    assert(notifications.length == signatures.length);
+
     // Wait for the remaining confirmations.
     return Future.wait(
       notifications, 

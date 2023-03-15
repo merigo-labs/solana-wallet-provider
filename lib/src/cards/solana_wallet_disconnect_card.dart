@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../views/solana_wallet_account_list_view.dart';
 import '../../solana_wallet_provider.dart';
-import '../../src/views/solana_wallet_opening_wallet_view.dart';
+import '../views/solana_wallet_progress_view.dart';
 
 
 /// Solana Wallet Disconnect Card
@@ -104,8 +104,8 @@ class _SolanaWalletDisconnectCardState extends State<SolanaWalletDisconnectCard>
           ),
         );
       case SolanaWalletMethodState.progress:
-        return const SolanaWalletCard(
-          body: SolanaWalletOpeningWalletView(),
+        return SolanaWalletCard(
+          body: SolanaWalletProgressView.opening(),
         );
       case SolanaWalletMethodState.success:
         return SolanaWalletCard(

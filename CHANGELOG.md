@@ -1,3 +1,9 @@
+## 0.0.7
+
+* Fix confirmation transactions check.
+* Fix button text style lerp.
+* Update progress messages.
+
 ## 0.0.6
 
 * Add low power mode warning option.

@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'solana_wallet_text_overflow.dart';
+import '../layouts/solana_wallet_grid.dart';
 import '../../solana_wallet_provider.dart';
 
 
@@ -26,23 +27,15 @@ class SolanaWalletButton extends StatefulWidget {
     this.hostAuthority,
     this.onConnect,
     this.onConnectError,
-    this.connectStyle,
-    this.connectBuilder,
-    this.connectChild,
-    this.connectDismissState,
+    this.onConnectDismissState,
+    this.connectedStyle,
+    this.connectedBuilder,
     this.onDisconnect,
     this.onDisconnectError,
-    this.disconnectStyle,
-    this.disconnectBuilder,
-    this.disconnectChild,
-    this.disconnectDismissState,
-  }): assert(
-    connectBuilder == null || connectChild == null,
-    '[SolanaWalletButton] can define [connectBuilder] or [connectChild], but not both.'
-  ), assert(
-    disconnectBuilder == null || disconnectChild == null,
-    '[SolanaWalletButton] can define [disconnectBuilder] or [disconnectChild], but not both.'
-  );
+    this.onDisconnectDismissState,
+    this.disconnectedStyle,
+    this.disconnectedBuilder,
+  });
 
   /// Called when the button is tapped or otherwise activated.
   ///
@@ -88,21 +81,14 @@ class SolanaWalletButton extends StatefulWidget {
   /// Called when the application attempts to connect to a wallet and fails.
   final void Function(Object error, [StackTrace? stackTrace])? onConnectError;
 
+  /// The auto dismiss state when connecting.
+  final DismissState? onConnectDismissState;
+
   /// The button's style when the application is connected to a wallet.
-  final ButtonStyle? connectStyle;
+  final ButtonStyle? connectedStyle;
 
   /// Builds the button's content when the application is connected to a wallet.
-  /// 
-  /// If [connectBuilder] is provided [connectChild] must be null.
-  final Widget Function(BuildContext context, Account account)? connectBuilder;
-
-  /// The button's content when the application is connected to a wallet.
-  /// 
-  /// If [connectChild] is provided [connectBuilder] must be null.
-  final Widget? connectChild;
-
-  /// The auto dismiss state when connecting.
-  final DismissState? connectDismissState;
+  final Widget Function(BuildContext context, Account account)? connectedBuilder;
 
   /// Called when the application disconnects from a wallet.
   final void Function(DeauthorizeResult result)? onDisconnect;
@@ -110,21 +96,43 @@ class SolanaWalletButton extends StatefulWidget {
   /// Called when the application attempts to disconnect from a wallet and fails.
   final void Function(Object error, [StackTrace? stackTrace])? onDisconnectError;
 
+  /// The auto dismiss state when disconnecting.
+  final DismissState? onDisconnectDismissState;
+
   /// The button's style when the application is not connected to a wallet.
-  final ButtonStyle? disconnectStyle;
+  final ButtonStyle? disconnectedStyle;
 
   /// Builds the button's content when the application is not connected to a wallet.
-  /// 
-  /// If [disconnectBuilder] is provided [disconnectChild] must be null.
-  final Widget Function(BuildContext context)? disconnectBuilder;
+  final Widget Function(BuildContext context)? disconnectedBuilder;
 
-  /// The button's content when the application is not connected to a wallet.
-  /// 
-  /// If [disconnectChild] is provided [disconnectBuilder] must be null.
-  final Widget? disconnectChild;
-
-  /// The auto dismiss state when disconnecting.
-  final DismissState? disconnectDismissState;
+  /// Default button style.
+  static ButtonStyle defaultStyleOf(final BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    return TextButton.styleFrom(
+      foregroundColor: colorScheme.primary,
+      disabledForegroundColor: colorScheme.onSurface.withOpacity(0.38),
+      backgroundColor: Colors.transparent,
+      disabledBackgroundColor: Colors.transparent,
+      shadowColor: theme.shadowColor,
+      elevation: 0,
+      textStyle: theme.textTheme.labelLarge,
+      padding: const EdgeInsets.symmetric(horizontal: SolanaWalletGrid.x3),
+      minimumSize: const Size.square(SolanaWalletGrid.x1 * 6.0),
+      maximumSize: Size.infinite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(SolanaWalletGrid.x2)),
+      ),
+      enabledMouseCursor: SystemMouseCursors.click,
+      disabledMouseCursor: SystemMouseCursors.basic,
+      visualDensity: theme.visualDensity,
+      tapTargetSize: theme.materialTapTargetSize,
+      animationDuration: kThemeChangeDuration,
+      enableFeedback: true,
+      alignment: Alignment.center,
+      splashFactory: InkRipple.splashFactory,
+    );
+  }
 
   @override
   State<SolanaWalletButton> createState() => _SolanaWalletButtonState();
@@ -141,7 +149,7 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
     return account != null
       ? () => provider.disconnect(
           context,
-          dismissState: widget.disconnectDismissState,
+          dismissState: widget.onDisconnectDismissState,
         )
       : () => provider.connect(
           context,
@@ -151,7 +159,7 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
             AppInfo.solflare,
           ],
           hostAuthority: widget.hostAuthority,
-          dismissState: widget.connectDismissState,
+          dismissState: widget.onConnectDismissState,
         );
   }
 
@@ -174,17 +182,16 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
       onLongPress: widget.onLongPress,
       onHover: widget.onHover,
       onFocusChange: widget.onFocusChange,
-      style: (connectedAccount != null
-        ? widget.connectStyle
-        : widget.disconnectStyle) ?? TextButton.styleFrom(),
+      style: (connectedAccount != null ? widget.connectedStyle : widget.disconnectedStyle) 
+        ?? TextButton.styleFrom(textStyle: const TextStyle(inherit: true)),
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       clipBehavior: widget.clipBehavior,
       statesController: widget.statesController,
       child: connectedAccount != null
-        ? widget.connectBuilder?.call(context, connectedAccount) 
+        ? widget.connectedBuilder?.call(context, connectedAccount) 
           ?? _connectBuilder(context, connectedAccount)
-        : widget.disconnectBuilder?.call(context) 
+        : widget.disconnectedBuilder?.call(context) 
           ?? _disconnectBuilder(context),
     );
   }
