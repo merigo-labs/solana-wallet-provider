@@ -45,6 +45,7 @@ class SolanaWalletAccountListView extends StatelessWidget {
 
   /// Creates a [Widget] for [account].
   Widget _builder(final BuildContext context, final Account account) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     final String address = account.addressBase58;
     return SolanaWalletCopyText(
       text: address,
@@ -53,13 +54,15 @@ class SolanaWalletAccountListView extends StatelessWidget {
         onTap: () => onPressed(account),
         title: Text(
           account.label ?? 'Wallet',
+          style: textTheme.bodyLarge,
         ),
         subtitle: SolanaWalletTextOverflow(
           text: address,
+          style: textTheme.labelMedium,
         ),
         trailing: selectedAccount == account 
           ? CustomPaint(
-            size: const Size.square(SolanaWalletGrid.x3),
+            size: const Size.square(SolanaWalletGrid.x2),
             painter: SolanaWalletTickIcon(
               color: Theme.of(context).indicatorColor, 
               strokeWidth: SolanaWalletThickness.x1,

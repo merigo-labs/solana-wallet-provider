@@ -15,6 +15,7 @@ class SolanaWalletTextOverflow extends StatelessWidget {
     super.key,
     required this.text,
     this.suffixLength = 4,
+    this.style,
   }): assert(suffixLength > 0);
 
   /// The text to truncate if it overflows.
@@ -22,6 +23,9 @@ class SolanaWalletTextOverflow extends StatelessWidget {
 
   /// The fixed number of characters to display at the end of the string.
   final int suffixLength;
+
+  /// Text style.
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +40,12 @@ class SolanaWalletTextOverflow extends StatelessWidget {
           child: Text(
             prefix,
             overflow: TextOverflow.ellipsis,
+            style: style,
           ),
         ),
         Text(
           suffix,
+          style: style,
         ),
       ],
     );

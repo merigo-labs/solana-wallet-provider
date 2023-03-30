@@ -49,7 +49,7 @@ class SolanaWalletContentView extends StatelessWidget {
               if (title != null)
                 SolanaWalletDefaultTextStyle(
                   style: cardTheme?.titleTextStyle 
-                    ?? Theme.of(context).textTheme.titleLarge, 
+                    ?? Theme.of(context).textTheme.titleSmall, 
                   child: title!,
                 ), 
               if (message != null)

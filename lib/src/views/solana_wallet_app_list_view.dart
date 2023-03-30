@@ -37,18 +37,22 @@ class SolanaWalletAppListView extends StatelessWidget {
 
   /// Creates a [Widget] for [info].
   Widget _builder(final BuildContext context, final AppInfo info) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return ListTile(
       leading: Image(
         image: info.icon,
         width: SolanaWalletGrid.x5,
       ),
-      title: Text(info.name),
+      title: Text(
+        info.name,
+        style: textTheme.bodyLarge,
+      ),
       onTap: () => onPressed(info), 
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     return SolanaWalletContentView(
       title: title,
       message: message,

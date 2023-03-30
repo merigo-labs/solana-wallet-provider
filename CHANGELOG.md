@@ -1,3 +1,7 @@
+## 0.0.8
+
+* Update default text style.
+
 ## 0.0.7
 
 * Fix confirmation transactions check.

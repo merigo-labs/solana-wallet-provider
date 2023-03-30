@@ -96,7 +96,7 @@ class _SolanaWalletCardState extends State<SolanaWalletCard> {
     final Widget body = _SolanaWalletCardSection(
       color: widget.bodyColor ?? cardTheme?.bodyColor,
       padding: widget.bodyPadding ?? cardTheme?.bodyPadding,
-      textStyle: cardTheme?.bodyTextStyle ?? theme.textTheme.bodyLarge,
+      textStyle: cardTheme?.bodyTextStyle ?? theme.textTheme.bodyMedium,
       child: widget.body,
     );
 
