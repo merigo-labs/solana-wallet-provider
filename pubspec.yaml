@@ -2,7 +2,7 @@ name: solana_wallet_provider
 description: Provider widget for solana_web3 and solana_wallet_adapter packages.
 repository: https://github.com/merigo-labs/solana-wallet-provider
 issue_tracker: https://github.com/merigo-labs/solana-wallet-provider/issues/new/choose
-version: 0.1.0
+version: 0.1.1
 
 environment:
   sdk: '>=3.0.3 <4.0.0'
@@ -17,7 +17,7 @@ dependencies:
     # path: ../solana_common
   solana_wallet_adapter: ^0.1.0
     # path: ../solana_wallet_adapter
-  solana_web3: ^0.1.0
+  solana_web3: ^0.1.1
     # path: ../solana_web3
 
 dev_dependencies:

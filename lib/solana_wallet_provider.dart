@@ -292,7 +292,6 @@ class SolanaWalletProvider extends StatefulWidget {
   Future<SignTransactionsResult> signTransactions(
     final BuildContext context, {
     required final List<Transaction> transactions,
-    final List<List<Signer>?> signersList = const [],
     final DismissState? dismissState,
   }) => open(
     context: context, 
@@ -303,7 +302,6 @@ class SolanaWalletProvider extends StatefulWidget {
       adapter: adapter,
       connection: connection,
       transactions: transactions,
-      signersList: signersList,
       completer: completer,
       dismissState: dismissState,
     ),

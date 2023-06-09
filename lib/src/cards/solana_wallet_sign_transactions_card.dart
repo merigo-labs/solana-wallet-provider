@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart' show SignTransactionsResult;
-import 'package:solana_web3/solana_web3.dart' show Connection, Signer, Transaction;
+import 'package:solana_web3/solana_web3.dart' show Connection, Transaction;
 import '../views/solana_wallet_modal_banner_view.dart';
 import '../widgets/sign_transactions_mixin.dart';
 import '../widgets/adapter_widget.dart';
@@ -27,7 +27,6 @@ class SolanaWalletSignTransactionsCard
     required super.adapter,
     required this.connection,
     required this.transactions,
-    required this.signersList,
     required super.completer,
     required super.dismissState,
   });
@@ -37,9 +36,6 @@ class SolanaWalletSignTransactionsCard
 
   @override
   final List<Transaction> transactions;
-
-  @override
-  final List<List<Signer>?> signersList;
 
   @override
   SignTransactionsAdapterState createState() => _SolanaWalletSignTransactionsCardState();

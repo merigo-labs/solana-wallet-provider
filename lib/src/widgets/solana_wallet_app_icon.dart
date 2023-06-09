@@ -42,7 +42,7 @@ class SolanaWalletAppIcon extends StatelessWidget {
         }
       }
     } catch (e) {
-
+      // Ignore and use default logo instead.
     }
     return null;
   }
