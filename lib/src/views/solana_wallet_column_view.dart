@@ -9,7 +9,7 @@ import '../layouts/solana_wallet_grid.dart';
 /// ------------------------------------------------------------------------------------------------
 
 /// A vertical stack of widgets separated by [spacing].
-class SolanaWalletColumnView<T> extends StatelessWidget {
+class SolanaWalletColumnView<T extends Object> extends StatelessWidget {
   
   /// Creates a [Column] separated by [spacing].
   const SolanaWalletColumnView({
@@ -32,7 +32,7 @@ class SolanaWalletColumnView<T> extends StatelessWidget {
   Widget _itemBuilder(final T item) => item as Widget;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final itemBuilder = builder ?? _itemBuilder;
     final int length = (children.length * 2) - 1;
     return Column(

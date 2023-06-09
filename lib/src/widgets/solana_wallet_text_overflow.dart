@@ -28,7 +28,7 @@ class SolanaWalletTextOverflow extends StatelessWidget {
   final TextStyle? style;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final int prefixLength = text.length > suffixLength ? text.length - suffixLength : text.length;
     final String prefix = text.substring(0, prefixLength);
     final String suffix = text.substring(prefixLength);

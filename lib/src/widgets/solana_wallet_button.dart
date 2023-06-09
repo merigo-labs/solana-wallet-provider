@@ -118,7 +118,7 @@ class SolanaWalletButton extends StatefulWidget {
       elevation: 0,
       textStyle: theme.textTheme.labelLarge,
       padding: const EdgeInsets.symmetric(horizontal: SolanaWalletGrid.x3),
-      minimumSize: const Size.square(SolanaWalletGrid.x1 * 6.0),
+      minimumSize: const Size.square(SolanaWalletGrid.x6),
       maximumSize: Size.infinite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(SolanaWalletGrid.x2)),
@@ -153,11 +153,6 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
         )
       : () => provider.connect(
           context,
-          options: SolanaWalletAdapterPlatform.instance.apps ?? const [],
-          downloadOptions: const [
-            AppInfo.phantom,
-            AppInfo.solflare,
-          ],
           hostAuthority: widget.hostAuthority,
           dismissState: widget.onConnectDismissState,
         );
@@ -165,7 +160,7 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
 
   /// Builds the button's child widget when the application is connected to [account].
   Widget _connectBuilder(final BuildContext context, final Account account) {
-    return SolanaWalletTextOverflow(text: account.addressBase58);
+    return SolanaWalletTextOverflow(text: account.toBase58());
   }
 
   /// Builds the button's child widget when disconnected.
@@ -174,7 +169,7 @@ class _SolanaWalletButtonState extends State<SolanaWalletButton> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final SolanaWalletProvider provider = SolanaWalletProvider.of(context);
     final Account? connectedAccount = provider.connectedAccount;
     return TextButton(

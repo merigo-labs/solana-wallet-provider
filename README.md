@@ -108,7 +108,7 @@ void main() {
 class App extends StatelessWidget {
   const App({super.key});
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     // 1. Wrap application with SolanaWalletProvider.
     return SolanaWalletProvider.create(                           
       identity: const AppIdentity(),

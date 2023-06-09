@@ -55,7 +55,7 @@ class _SolanaWalletCopyTextState extends State<SolanaWalletCopyText> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final VoidCallback? handler = _showMessage ? null : _copyText;
     return GestureDetector(
       onTap: widget.onLongPress ? null : handler,

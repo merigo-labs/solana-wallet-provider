@@ -1,7 +1,7 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'package:solana_web3/solana_web3.dart' show PublicKey;
+import 'package:solana_web3/solana_web3.dart' show Pubkey;
 
 
 /// Sign In Message
@@ -31,7 +31,7 @@ class SignInMessage {
   final String domain;
 
   /// The blockchain address performing the signing.
-  final PublicKey? address;
+  final Pubkey? address;
 
   /// A human-readable ASCII assertion that the user will sign. It MUST NOT contain `\n`.
   final String? statement;

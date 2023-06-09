@@ -1,234 +1,212 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'dart:async' show Completer;
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import '../../solana_wallet_provider.dart';
-import '../../src/cards/solana_wallet_low_power_mode_card.dart';
-import '../../src/widgets/solana_wallet_animated_switcher.dart';
-
-
-/// Types
-/// ------------------------------------------------------------------------------------------------
-
-typedef MethodBuilder<T> = Widget Function(
-  BuildContext, 
-  AsyncSnapshot<T>, 
-  SolanaWalletMethodController,
-);
-
-
-/// Solana Wallet Method Controller
-/// ------------------------------------------------------------------------------------------------
-
-mixin SolanaWalletMethodController {
-
-  /// Triggers the method call.
-  void call();
-
-  /// The current state of a method call.
-  SolanaWalletMethodState get state;
-}
+import 'package:solana_wallet_adapter/solana_wallet_adapter.dart' show SolanaWalletAdapterException, 
+  SolanaWalletAdapterExceptionCode;
+import '../../solana_wallet_provider.dart' show SolanaWalletProvider;
+import '../constants.dart';
+import '../models/dismiss_state.dart';
+import '../views/solana_wallet_modal_banner_view.dart';
 
 
 /// Solana Wallet Method Builder
 /// ------------------------------------------------------------------------------------------------
 
-/// An widget that invokes [method] with [value] and animates state changes.
+/// A widget that builds its view based on the current state of [future]. The widget animates view 
+/// changes between states.
 /// 
-/// If [auto] is false the method must be invoked by [SolanaWalletMethodController.call].
-class SolanaWalletMethodBuilder<T, U> extends StatefulWidget {
-  
-  /// Creates a widget that invokes [method] with [value]. The rendered view is provided by 
-  /// [builder] for the current state. The widget animates view changes and completes by calling 
-  /// [onComplete] or [onCompleteError].
+/// Provide [builder] to define custom UIs for each state.
+class SolanaWalletMethodBuilder<T> extends StatefulWidget {
+
+  /// Creates a widget to display the state of a method call.
   const SolanaWalletMethodBuilder({
-    super.key,
-    required this.value,
-    required this.method,
-    required this.builder,
-    this.dismissState,
-    this.onComplete,
-    this.onCompleteError,
-    this.auto = true,
-    this.checkLowPowerMode = false,
+    super.key, 
+    required this.future,
+    required this.completer,
+    required this.dismissState,
+    this.builder,
   });
 
-  /// The value passed to [method].
-  final U value;
+  /// {@template solana_wallet_provider.SolanaWalletMethodBuilder.future}
+  /// The future to observe the state of. This can only be set to a non-null value once.
+  /// {@endtemplate}
+  final Future<T>? future;
 
-  /// The method to invoke.
-  final Future<T> Function(U value) method;
+  /// {@template solana_wallet_provider.SolanaWalletMethodBuilder.completer}
+  /// The handler invoked with the result of [future] when it completes.
+  /// {@endtemplate}
+  final Completer<T>? completer;
 
-  /// Builds the widget to display for each state.
-  final MethodBuilder<T> builder;
-
-  /// The state in which a call to [SolanaWalletProvider.close] will be made to automatically 
-  /// dismiss the action.
+  /// {@template solana_wallet_provider.SolanaWalletMethodBuilder.dismissState}
+  /// The completion state in which to automatically close the [SolanaWalletProvider] modal.
+  /// 
+  /// For example, providing a value of [DismissState.success] tells the widget to ignore drawing 
+  /// the `success` state and call [SolanaWalletProvider.close] instead.
+  /// {@endtemplate}
   final DismissState? dismissState;
 
-  /// The callback function invoked when [method] completes successfully.
-  final void Function(T value)? onComplete;
-
-  /// The callback function invoked when [method] completes with an error.
-  final void Function(Object error, [StackTrace? stackTrace])? onCompleteError;
-
-  /// True if the method should be invoked immediately. Otherwise 
-  /// [SolanaWalletMethodController.call] must be called to invoke the [method].
-  final bool auto;
-
-  /// True if the method should paused and display a `low power mode` warning message.
-  final bool checkLowPowerMode;
+  /// {@template solana_wallet_provider.SolanaWalletMethodBuilder.builder}
+  /// Builds the widget for the current [AsyncSnapshot.connectionState].
+  /// 
+  /// To trigger state change animations you may need to set the returned widget's [Key] property.
+  /// {@endtemplate}
+  final Widget? Function(BuildContext context, AsyncSnapshot<T> snapshot)? builder;
 
   @override
-  State<SolanaWalletMethodBuilder<T, U>> createState() => _SolanaWalletMethodBuilderState<T, U>();
+  State<SolanaWalletMethodBuilder<T>> createState() => _SolanaWalletMethodBuilderState<T>();
 }
 
 
 /// Solana Wallet Method Builder State
 /// ------------------------------------------------------------------------------------------------
 
-class _SolanaWalletMethodBuilderState<T, U> 
-  extends State<SolanaWalletMethodBuilder<T, U>> 
-    with SolanaWalletMethodController {
-  
-  /// The [SolanaWalletMethodBuilder.method] call's return value.
-  T? _data;
+class _SolanaWalletMethodBuilderState<T> extends State<SolanaWalletMethodBuilder<T>> {
 
-  /// The [SolanaWalletMethodBuilder.method] call's error value.
-  Object? _error;
+  /// The current state of [_future].
+  late AsyncSnapshot<T> _snapshot;
 
-  /// The [SolanaWalletMethodBuilder.method] call's error stack trace.
-  StackTrace? _stackTrace;
-
-  /// True if the method has been called;
-  bool _invoked = false;
-
-  /// True if the widget should render a `low power mode` card.
-  bool _showLowPowerModeCard = false;
-
-  /// The user's `low power mode` warning confirmation.
-  Completer<void>? _lowPowerModeConfirmation;
-
-  /// The [SolanaWalletMethodBuilder.method] call's current state.
-  SolanaWalletMethodState _state = SolanaWalletMethodState.none;
-
-  @override
-  SolanaWalletMethodState get state => _state;
-
-  /// An invalid data exception.
-  SolanaWalletProviderException get _invalidException => const SolanaWalletProviderException(
-    'Invalid data', 
-    code: SolanaWalletProviderExceptionCode.invalid,
-  );
+  /// The pending method call.
+  Future<T>? _future;
 
   @override
   void initState() {
     super.initState();
-    if (widget.auto) {
-      _state = SolanaWalletMethodState.progress;
-      SchedulerBinding.instance.addPostFrameCallback((_) => call());
-    }
+    _initSnapshot();
+    _initFuture();
   }
 
   @override
-  void call() async {
-    if (!_invoked) {
-      _invoked = true;
-      try {
-        await _checkLowPowerMode();
-        _setMethodState(SolanaWalletMethodState.progress);
-        final T result = _data = await widget.method(widget.value);
-        _setMethodState(SolanaWalletMethodState.success);
-        widget.onComplete?.call(result);
-      } catch (error, stackTrace) {
-        _error = error;
-        _stackTrace = stackTrace;
-        if (!_isDismissedException(error)) {
-          _setMethodState(SolanaWalletMethodState.error);
-        }
-        widget.onCompleteError?.call(error, stackTrace);
-      }
+  void didUpdateWidget(covariant final SolanaWalletMethodBuilder<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.future != widget.future) {
+      _initFuture();
     }
   }
 
-  /// Check the device's power mode and await confirmation if 
-  /// [SolanaWalletMethodBuilder.checkLowPowerMode] is enabled and the device is in low power mode.
-  Future<void> _checkLowPowerMode() async {
-    if (widget.checkLowPowerMode) {
-      _showLowPowerModeCard = await SolanaWalletAdapterPlatform.instance.isLowPowerMode();
-      if (_showLowPowerModeCard) {
-        _lowPowerModeConfirmation = Completer.sync();
-        if (mounted) setState(() {});
-        return _lowPowerModeConfirmation?.future;
-      }
+  /// Sets [_snapshot] based on the current value of [SolanaWalletMethodBuilder.future].
+  void _initSnapshot() {
+    _snapshot = widget.future != null 
+      ? AsyncSnapshot<T>.waiting() 
+      : AsyncSnapshot<T>.nothing();
+  }
+
+  /// Sets [_future] and subsequently triggers a call to [_handler]. The [_future] is set the first 
+  /// time a non-null value is provided by [SolanaWalletMethodBuilder.future].
+  void _initFuture() {
+    final Future<T>? future = widget.future;
+    if (_future == null && future != null) {
+      _future = future;
+      _handler(future);
     }
   }
 
-  /// Complete low power mode confirmation.
-  void _onTapConfirm() {
-    _showLowPowerModeCard = false;
-    _lowPowerModeConfirmation?.complete();
+  /// Returns true if [error] is a [SolanaWalletAdapterExceptionCode.cancelled] exception.
+  bool _isCancelledException(final Object error) {
+    return error is SolanaWalletAdapterException
+      && error.code == SolanaWalletAdapterExceptionCode.cancelled;
   }
 
-  /// Returns true if [error] is a `dismissed` or `cancelled` exception.
-  bool _isDismissedException(final Object error) {
-    return (error is SolanaWalletProviderException
-      && error.code == SolanaWalletProviderExceptionCode.dismissed)
-      || (error is SolanaWalletAdapterException
-        && error.code == SolanaWalletAdapterExceptionCode.cancelled);
-  }
-
-  /// Sets [_state] and marks the widget as changed to schedule a call to [build].
-  void _setMethodState(final SolanaWalletMethodState state) {
+  /// Returns true if [connectionState] is equivalent to the provided 
+  /// [SolanaWalletMethodBuilder.dismissState].
+  bool _isDismissState(final ConnectionState connectionState) {
     final DismissState? dismissState = widget.dismissState;
-    if (dismissState != null && dismissState.equals(state)) {
-      SolanaWalletProvider.close(context);
-    } else if (_state != state) {
-      _state = state;
-      if (mounted) setState(() {});
+    if (dismissState == null || connectionState != ConnectionState.done) {
+      return false;
+    }
+    switch (dismissState) {
+      case DismissState.success:
+        return !_snapshot.hasError;
+      case DismissState.error:
+        return _snapshot.hasError;
+      case DismissState.done:
+        return true;
     }
   }
 
-  /// Creates an [AsyncSnapshot] for the current [_state].
-  AsyncSnapshot<T> _snapshot() {
-    switch(_state) {
-      case SolanaWalletMethodState.none:
-        return const AsyncSnapshot.nothing();
-      case SolanaWalletMethodState.progress:
-        return const AsyncSnapshot.waiting();
-      case SolanaWalletMethodState.success:
-      case SolanaWalletMethodState.error:
-        final T? data = _data;
-        return data != null
-          ? AsyncSnapshot<T>.withData(
-              ConnectionState.done, 
-              data,
-            )
-          : AsyncSnapshot<T>.withError(
-              ConnectionState.done, 
-              _error ?? _invalidException, 
-              _stackTrace ?? StackTrace.current,
-            );
+  /// Sets [_snapshot] to [snapshot] if the [AsyncSnapshot.connectionState] has changed and is not 
+  /// an equivalent [DismissState].
+  void _setSnapshot(final AsyncSnapshot<T> snapshot) {
+    if (mounted && _snapshot.connectionState != snapshot.connectionState) {
+      if (!_isDismissState(snapshot.connectionState)) {
+        setState(() => _snapshot = snapshot);
+      }
+    }
+  } 
+
+  /// Resolves [SolanaWalletMethodBuilder.completer] with [data].
+  void _complete(final T data) {
+    final Completer<T>? completer = widget.completer;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(data);
+    }
+  }
+
+  /// Resolves [SolanaWalletMethodBuilder.completer] with [error].
+  void _completeError(final Object error, [final StackTrace? stackTrace]) {
+    final Completer<T>? completer = widget.completer;
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(error, stackTrace);
+    }
+  }
+
+  /// Waits for the result of [future] and sets the state accordingly.
+  Future<void> _handler(final Future<T> future) async {
+    try {
+      _setSnapshot(AsyncSnapshot<T>.waiting());
+      final T data = await future;
+      _setSnapshot(AsyncSnapshot<T>.withData(ConnectionState.done, data));
+      _complete(data);
+    } catch (error, stackTrace) {
+      // Ignore `cancelled` exceptions, the modal should have already been poped by 
+      // [SolanaWalletProvider].
+      if (!_isCancelledException(error)) { 
+        _setSnapshot(AsyncSnapshot<T>.withError(ConnectionState.done, error, stackTrace));
+      }
+      _completeError(error, stackTrace);
+    }
+  }
+
+  /// Builds a view for the current [AsyncSnapshot.connectionState].
+  Widget _builder(
+    final BuildContext context, 
+    final AsyncSnapshot<T> snapshot,
+  ) {
+    final Widget? child = widget.builder?.call(context, _snapshot);
+    if (child != null) {
+      return child;
+    }
+    switch (snapshot.connectionState) {
+      case ConnectionState.none:
+      case ConnectionState.waiting:
+      case ConnectionState.active:
+        return SolanaWalletModalBannerView.opening();
+      case ConnectionState.done:
+        final Object? error = snapshot.error;
+        if (error != null) {
+          return SolanaWalletModalBannerView.error(
+            title: const Text('Error'),
+            error: error,
+            message: const Text('Something went wrong.'),
+          );
+        } else {
+          return SolanaWalletModalBannerView.success(
+            title: const Text('Success'),
+            message: const Text('Task complete.'),
+          );
+        }
     }
   }
 
   @override
-  Widget build(final BuildContext context) {
-    final Widget child = _showLowPowerModeCard 
-      ? SolanaWalletLowPowerModeCard(
-          key: const ValueKey(0),
-          onPressedConfirm: _onTapConfirm,
-        )
-      : widget.builder(context, _snapshot(), this);
-    return SolanaWalletAnimatedSwitcher(
-      child: child.key != null 
-        ? child 
-        : KeyedSubtree(
-            key: ValueKey(_state), 
-            child: child,
-          ),
+  Widget build(
+    final BuildContext context,
+  ) => AnimatedSize(
+      duration: kTransitionDuration,
+      child: AnimatedSwitcher(
+        duration: kTransitionDuration,
+        child: _builder(context, _snapshot),
+      ),
     );
-  }
 }

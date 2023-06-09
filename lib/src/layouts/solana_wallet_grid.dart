@@ -16,4 +16,5 @@ class SolanaWalletGrid {
   static const double x3 = x1 * 3.0;
   static const double x4 = x1 * 4.0;
   static const double x5 = x1 * 5.0;
+  static const double x6 = x1 * 6.0;
 }

@@ -1,3 +1,7 @@
+## 0.1.0
+
+* Restructure package.
+
 ## 0.0.8
 
 * Update default text style.

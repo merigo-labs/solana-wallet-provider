@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 /// Solana Wallet Default Text Style
 /// ------------------------------------------------------------------------------------------------
 
+@immutable
 class SolanaWalletDefaultTextStyle extends StatelessWidget {
   
   /// Wraps [child] in a [DefaultTextStyle].

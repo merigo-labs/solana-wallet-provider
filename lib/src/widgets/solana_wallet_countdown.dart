@@ -1,7 +1,7 @@
 /// Imports
 /// ------------------------------------------------------------------------------------------------
 
-import 'dart:async';
+import 'dart:async' show Timer;
 import 'package:flutter/material.dart';
 
 
@@ -53,15 +53,16 @@ class _SolanaWalletCountdownState extends State<SolanaWalletCountdown> {
     super.dispose();
   }
 
-  /// Updates [_remaining] and marks the widget as changed to schedule a call to [build] if 
-  /// [widget.duration] has not elapsed.
+  /// Updates [_remaining] and marks the widget as changed to schedule a call to [build]. The 
+  /// [_timer] is cancelled if [SolanaWalletCountdown.duration] has elapsed.
   void _onTick(final Timer timer) {
     _remaining -= const Duration(seconds: 1);
-    if (_remaining > Duration.zero) {
-      if (mounted) setState(() {});
-    } else {
+    if (_remaining <= Duration.zero) {
       timer.cancel();
       widget.onTimeout?.call();
+    }
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -74,13 +75,7 @@ class _SolanaWalletCountdownState extends State<SolanaWalletCountdown> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 250),
-      child: Text(
-        _format(_remaining > Duration.zero ? _remaining : Duration.zero), 
-        key: const ValueKey(0),
-      ),
-    );
+  Widget build(final BuildContext context) {
+    return Text(_format(_timer.isActive ? _remaining : Duration.zero));
   }
 }

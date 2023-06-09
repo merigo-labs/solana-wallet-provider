@@ -3,50 +3,49 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../views/solana_wallet_progress_view.dart';
-import '../../solana_wallet_provider.dart';
-import '../../src/views/solana_wallet_authorized_view.dart';
+import 'package:solana_wallet_adapter/solana_wallet_adapter.dart';
+import '../../solana_wallet_provider.dart' show SolanaWalletProvider;
+import '../models/dismiss_state.dart';
+import '../views/solana_wallet_apps_view.dart';
+import '../views/solana_wallet_download_view.dart';
+import '../views/solana_wallet_modal_banner_view.dart';
+import '../views/solana_wallet_modal_view.dart';
+import '../views/solana_wallet_qr_code_view.dart';
+import '../widgets/solana_wallet_method_builder.dart';
+import 'solana_wallet_modal_card.dart';
 
 
 /// Solana Wallet Connect Card
 /// ------------------------------------------------------------------------------------------------
 
-/// A card that facilitates connecting an application to a wallet app.
+/// A card that facilitates connecting a dApp to a wallet application.
 class SolanaWalletConnectCard extends StatefulWidget {
   
-  /// Creates a card that facilitates connecting an application to a wallet app.
+  /// Creates a card that facilitates connecting a dApp to a wallet application.
   const SolanaWalletConnectCard({
     super.key,
-    this.options = const [],
-    this.downloadOptions = const [],
     required this.adapter,
+    this.options,
     this.hostAuthority,
+    this.completer,
     this.dismissState,
-    required this.onComplete,
-    required this.onCompleteError,
   });
 
-  /// The applications presented as options to connect with.
-  final List<AppInfo> options;
-
-  /// The applications presented as options to download.
-  final List<AppInfo> downloadOptions;
-
-  /// The wallet adapter to connect with.
+  /// The wallet adapter interface.
   final SolanaWalletAdapter adapter;
 
-  /// The remote connection uri.
+  /// The applications presented as `connect options` (defaults to the adapter platform's 
+  /// [StoreInfo.options] if omitted, pass an empty list to display no options).
+  final List<AppInfo>? options;
+
+  /// {@macro solana_wallet_adapter.hostAuthority}
   final String? hostAuthority;
 
-  /// The [SolanaWalletMethodState] in which the [SolanaWalletProvider] modal should be 
-  /// automatically closed.
+  /// {@macro solana_wallet_provider.SolanaWalletMethodBuilder.completer}
+  final Completer<AuthorizeResult>? completer;
+
+  /// {@macro solana_wallet_provider.SolanaWalletMethodBuilder.dismissState}
   final DismissState? dismissState;
-
-  /// The callback function invoked when the connection completes successfully.
-  final void Function(AuthorizeResult? value)? onComplete;
-
-  /// The callback function invoked when the connection fails.
-  final void Function(Object error, [StackTrace? stackTrace])? onCompleteError;
 
   @override
   State<SolanaWalletConnectCard> createState() => _SolanaWalletConnectCardState();
@@ -58,32 +57,84 @@ class SolanaWalletConnectCard extends StatefulWidget {
 
 class _SolanaWalletConnectCardState extends State<SolanaWalletConnectCard> {
 
+  /// The local authorization request.
+  Future<AuthorizeResult>? _localFuture;
+
+  /// The remote authorization request.
+  Future<AuthorizeResult>? _remoteFuture;
+
   /// The selected application.
-  AppInfo? _appInfo;
+  AppInfo? _app;
 
-  /// The type of association being attempted.
-  AssociationType _associationType = AssociationType.local;
-
-  /// The wallet adapter.
+  /// The wallet adapter interface.
   SolanaWalletAdapter get _adapter => widget.adapter;
+
+  /// The applications presented to the user for selection.
+  List<AppInfo> get _options => widget.options ?? _adapter.store.options;
 
   /// The remote connection uri.
   String? get _hostAuthority => widget.hostAuthority ?? _adapter.hostAuthority;
 
-  /// The remote connection timeout.
-  final Duration _hostTimeout = const Duration(minutes: 2);
+  /// The remote connection timeout duration.
+  final Duration _hostTimeLimit = const Duration(minutes: 2);
 
-  /// Simulate a connect request that results in a [SolanaWalletAdapterException] with error code 
+  @override
+  void initState() {
+    super.initState();
+    if (_options.isEmpty) {
+      _initLocalFuture();
+    }
+  }
+
+  /// Simulates a connect request that results in a [SolanaWalletAdapterException] with error code 
   /// [SolanaWalletAdapterExceptionCode.walletNotFound].
-  // Future<AuthorizeResult?> _simulateErrorRequest() {
-  //   return Future.delayed(
-  //     const Duration(seconds: 1),
-  //     () => Future.error(const SolanaWalletAdapterException(
-  //       'Simulated request exception - wallet not found.',
-  //       code: SolanaWalletAdapterExceptionCode.walletNotFound,
-  //     )),
-  //   );
-  // }
+  Future<AuthorizeResult> _simulateErrorRequest() {
+    return Future.delayed(
+      const Duration(seconds: 1),
+      () => Future.error(const SolanaWalletAdapterException(
+        'Simulated request exception - wallet not found.',
+        code: SolanaWalletAdapterExceptionCode.walletNotFound,
+      )),
+    );
+  }
+
+  /// Sets [_localFuture] and invokes a local authorization method call.
+  void _initLocalFuture() {
+    if (mounted && _localFuture == null) {
+      // _localFuture = _simulateErrorRequest().catchError(_localFutureError);
+      _localFuture = _adapter.authorize(
+        type: AssociationType.local, 
+        walletUriBase: _app?.walletUriBase,
+      ).catchError(_localFutureError);
+      setState(() {});
+    }
+  }
+
+  /// Sets [_remoteFuture] and invokes a remote authorization method call if a `hostAuthority` url 
+  /// is available.
+  void _initRemoteFuture() {
+    final String? hostAuthority = _hostAuthority;
+    if (mounted && _remoteFuture == null && hostAuthority != null) {
+      _remoteFuture = _adapter.authorize(
+        type: AssociationType.remote, 
+        hostAuthority: hostAuthority, 
+        walletUriBase: _app?.walletUriBase,
+      );
+      setState(() {});
+    }
+  }
+
+  /// Handles a local association error and invoke a remote association call for an [error] of type 
+  /// [SolanaWalletAdapterExceptionCode.walletNotFound].
+  Future<AuthorizeResult> _localFutureError(
+    final Object error, [
+    final StackTrace? stackTrace, 
+  ]) async {
+    if (_isWalletNotFoundException(error)) {
+      _initRemoteFuture();
+    }
+    return Future.error(error, stackTrace);
+  }
     
   /// Returns true if [error] is a [SolanaWalletAdapterException] with error code 
   /// [SolanaWalletAdapterExceptionCode.walletNotFound].
@@ -92,178 +143,112 @@ class _SolanaWalletConnectCardState extends State<SolanaWalletConnectCard> {
       && error.code == SolanaWalletAdapterExceptionCode.walletNotFound;
   }
 
-  /// Sets [_associationType] and marks the widget to be rebuilt.
-  void _setAssociationType(final AssociationType associationType) {
-    if (mounted && _associationType != associationType) {
-      setState(() => _associationType = associationType);
-    }
+  /// Invokes a local association method call for [app].
+  void _onTapConnect(final AppInfo app) {
+    _app = app;
+    _initLocalFuture();
   }
 
-  /// Creates an app selection callback method.
-  void Function(AppInfo info) _onTapSelection(
-    final SolanaWalletMethodController controller,
-  ) => (final AppInfo appInfo) {
-    _appInfo = appInfo;
-    // Set provider for desktop web browsers **(N/A for mobile)**.
-    SolanaWalletAdapterPlatform.instance.setProvider(appInfo);
-    if (SolanaWalletAdapterPlatform.instance.isDesktop
-      && !SolanaWalletAdapterPlatform.instance.hasProvider) {
-        _onTapInstall(appInfo);
-    } else {
-      controller.call();
-    }
-  };
-
-  /// Opens [app]'s store and closes [SolanaWalletProvider]'s modal bottom sheet.
-  void _onTapInstall(final AppInfo app) {
-    SolanaWalletAdapterPlatform.instance.openStore(app).ignore();
+  /// Opens the application store for [app] and closes the modal.
+  void _onTapDownload(final AppInfo? app) {
+    _adapter.store.open(app);
     SolanaWalletProvider.close(context);
   }
 
-  /// [SolanaWalletMethodBuilder.method].
-  Future<AuthorizeResult> _method([
-    final dynamic value,
-  ]) async {
-    try {
-      // 1. Local Association - attempt a local association request to connect the application with 
-      // a wallet running on the device.
-      _setAssociationType(AssociationType.local);
-      return await _adapter.localAssociation(
-        _adapter.authorizeHandler, 
-        walletUriBase: _appInfo?.walletUriBase,
-        scheme: _appInfo?.scheme,
-      );
-    } on SolanaWalletAdapterException catch (error) {
-      // 2. Remote Association - attempt a remote association request to connect the application 
-      // with a wallet running on different device.
-      final String? hostAuthority = _hostAuthority;
-      if (_isWalletNotFoundException(error) && _hostAuthority != null) {
-        _setAssociationType(AssociationType.remote);
-        return _adapter.remoteAssociation(
-          hostAuthority, 
-          _adapter.authorizeHandler, 
-          timeout: _hostTimeout,
-        );
-      }
-      rethrow;
-    }
-  }
-
-  /// Builds a widget for the current [SolanaWalletMethodController.state].
-  Widget _builder(
-    final BuildContext context, 
-    final AsyncSnapshot<AuthorizeResult> snapshot,
-    final SolanaWalletMethodController controller,
-  ) {    
-    switch(controller.state) {
-      case SolanaWalletMethodState.none:
-        return _noneBuilder(context, controller);
-      case SolanaWalletMethodState.progress:
-        return _progressBuilder(context, snapshot);
-      case SolanaWalletMethodState.success:
-        return _successBuilder(context, snapshot.data!);
-      case SolanaWalletMethodState.error:
-        return _errorBuilder(context, snapshot.error);
-    }
-  }
-
-  /// Builds a widget for [SolanaWalletMethodState.none].
-  Widget _noneBuilder(
-    final BuildContext context, 
-    final SolanaWalletMethodController controller,
-  ) {
-    return SolanaWalletCard(
-      body: SolanaWalletAppListView(
-        title: const Text('Connect Wallet'),
-        message: const Text('Select a wallet provider.'),
-        onPressed: _onTapSelection(controller),
-        apps: widget.options,
-      ),
-    );
-  }
-
-  /// Builds a widget for [SolanaWalletMethodState.progress].
-  Widget _progressBuilder(
-    final BuildContext context, 
-    final AsyncSnapshot<AuthorizeResult?> snapshot,
-  ) {
-    switch(_associationType) {
-      case AssociationType.local:
-        return SolanaWalletCard(
-          key: ValueKey(_associationType),
-          body: SolanaWalletProgressView.opening(
-            app: _appInfo,
-          ),
-        );
-      case AssociationType.remote:
-        return SolanaWalletCard(
-          key: ValueKey(_associationType),
-          body: SolanaWalletRemoteConnectView(
-            app: _appInfo,
-            hostAuthority: _hostAuthority!,
-            timeout: _hostTimeout,
-          ),
-        );
-    }
-  }
-
-  /// Builds a widget for [SolanaWalletMethodState.success].
-  Widget _successBuilder(
-    final BuildContext context, 
-    final AuthorizeResult result,
-  ) {
-    return SolanaWalletCard(
-      body: SolanaWalletAuthorizedView(
-        result: result,
-        app: _appInfo,
-      ),
-    );
-  }
-
-  /// Builds a widget for [SolanaWalletMethodState.error].
+  /// Builds an error view.
   Widget _errorBuilder(
-    final BuildContext context, 
-    final Object? error,
-  ) {
-    if (_isWalletNotFoundException(error)) {
-      final AppInfo? appInfo = _appInfo; 
-      if (appInfo != null) {
-        return SolanaWalletCard(
-          body: SolanaWalletAppDownloadView(
-            app: appInfo,
-            onPressed: _onTapInstall,
-          ),
-        );
-      }
-      if (widget.downloadOptions.isNotEmpty) {
-        return SolanaWalletCard(
-          body: SolanaWalletAppListView(
-            title: const Text('Download Wallet'), 
-            message: Text(SolanaWalletAppDownloadView.description), 
-            apps: widget.downloadOptions, 
-            onPressed: _onTapInstall,
-          ),
-        );
-      }
-    }
-    return SolanaWalletCard(
-      body: SolanaWalletStateView.error(
-        error: error,
-        message: 'Failed to connect.'
-      ),
+    final Object error, [
+    final StackTrace? stackTrace, 
+  ]) => SolanaWalletModalBannerView.error(
+      error: error,
+      message: const Text('Connection failed.'),
     );
+  
+  /// Builds an success view.
+  Widget _successBuilder(
+    final AuthorizeResult data, 
+  ) => SolanaWalletModalBannerView.success(
+      message: const Text('Wallet connected.'),
+    );
+
+  /// Builds a view for the current local association state.
+  Widget _localBuilder(
+    final BuildContext context,
+    final AsyncSnapshot<AuthorizeResult> snapshot,
+  ) {
+    switch (snapshot.connectionState) {
+      case ConnectionState.none:
+        final List<AppInfo> options = _options;
+        return options.isEmpty 
+          ? SolanaWalletModalBannerView.opening()
+          : SolanaWalletModalView(
+              title: const Text('Connect Wallet'),
+              message: const Text('Select a wallet provider.'),
+              body: SolanaWalletAppsView(
+                apps: options,
+                onPressed: _onTapConnect,
+              ),
+            );
+      case ConnectionState.waiting:
+      case ConnectionState.active:
+        return SolanaWalletModalBannerView.opening();
+      case ConnectionState.done:
+        final Object? error = snapshot.error;
+        if (error != null) {
+          if (_remoteFuture != null) {
+            return SolanaWalletMethodBuilder(
+              future: _remoteFuture, 
+              completer: widget.completer, 
+              dismissState: widget.dismissState,
+              builder: _remoteBuilder,
+            );
+          } else if (_isWalletNotFoundException(error)) {
+            final AppInfo? app = _app;
+            return SolanaWalletDownloadView(
+              options: app != null ? [app] : _adapter.store.apps, 
+              onPressed: _onTapDownload,
+            );
+          } else {
+            return _errorBuilder(error, snapshot.stackTrace);
+          }
+        } else {
+          return _successBuilder(snapshot.data!);
+        }
+    }
+  }
+
+  /// Builds a view for the current remote association state.
+  Widget _remoteBuilder(
+    final BuildContext context,
+    final AsyncSnapshot<AuthorizeResult> snapshot,
+  ) {
+    switch (snapshot.connectionState) {
+      case ConnectionState.none:
+      case ConnectionState.waiting:
+      case ConnectionState.active:
+        return SolanaWalletQrCodeView(
+          app: _app,
+          hostAuthority: _hostAuthority!, 
+          timeLimit: _hostTimeLimit, 
+          onPressedDownload: _onTapDownload,
+        );
+      case ConnectionState.done:
+        final Object? error = snapshot.error;
+        return error != null
+          ? _errorBuilder(error, snapshot.stackTrace)
+          : _successBuilder(snapshot.data!);
+    }
   }
 
   @override
   Widget build(final BuildContext context) {
-    return SolanaWalletMethodBuilder(
-      value: null, 
-      method: _method, 
-      builder: _builder,
-      dismissState: widget.dismissState,
-      auto: widget.options.isEmpty,
-      onComplete: widget.onComplete,
-      onCompleteError: widget.onCompleteError,
+    return SolanaWalletModalCard(
+      child: SolanaWalletMethodBuilder(
+        future: _localFuture, 
+        completer: widget.completer, 
+        dismissState: widget.dismissState,
+        builder: _localBuilder,
+      ),
     );
   }
 }

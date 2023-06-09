@@ -2,7 +2,7 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'package:solana_wallet_adapter/solana_wallet_adapter.dart' show Account;
-import 'package:solana_web3/solana_web3.dart' show PublicKey;
+import 'package:solana_web3/solana_web3.dart' show Pubkey;
 
 
 /// Account PubKey
@@ -10,6 +10,6 @@ import 'package:solana_web3/solana_web3.dart' show PublicKey;
 
 extension AccountPubKey on Account {
 
-  /// Creates a [PublicKey] from the account's [address].
-  PublicKey toPublicKey() => PublicKey.fromBase64(address);
+  /// Creates a [Pubkey] from the account's [address].
+  Pubkey toPubkey() => Pubkey.fromBase64(address);
 }

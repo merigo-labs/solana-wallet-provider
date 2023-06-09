@@ -2,7 +2,7 @@
 /// ------------------------------------------------------------------------------------------------
 
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show Diagnosticable;
 import 'package:flutter/material.dart';
 
 
@@ -16,15 +16,21 @@ class SolanaWalletQrCodeTheme with Diagnosticable {
   /// The styles applied to a QR code.
   const SolanaWalletQrCodeTheme({
     this.size,
+    this.border,
+    this.borderRadius,
     this.padding,
     this.backgroundColor,
     this.foregroundColor,
-    this.border,
-    this.borderRadius,
   });
 
   /// The width and height dimension.
   final double? size;
+
+  /// The border style.
+  final BoxBorder? border;
+
+  /// The border radius.
+  final BorderRadius? borderRadius;
 
   /// The content padding.
   final EdgeInsets? padding;
@@ -34,12 +40,6 @@ class SolanaWalletQrCodeTheme with Diagnosticable {
 
   /// The qr code colour.
   final Color? foregroundColor;
-  
-  /// The border style.
-  final BoxBorder? border;
-  
-  /// The border radius.
-  final BorderRadiusGeometry? borderRadius;
 
   /// Linearly interpolate between two [SolanaWalletQrCodeTheme]s.
   static SolanaWalletQrCodeTheme lerp(
@@ -48,10 +48,10 @@ class SolanaWalletQrCodeTheme with Diagnosticable {
     final double t,
   ) => SolanaWalletQrCodeTheme(
       size: lerpDouble(a?.size, b?.size, t),
+      border: BoxBorder.lerp(a?.border, b?.border, t),
+      borderRadius: BorderRadius.lerp(a?.borderRadius, b?.borderRadius, t),
       padding: EdgeInsets.lerp(a?.padding, b?.padding, t),
       backgroundColor: Color.lerp(a?.backgroundColor, b?.backgroundColor, t),
       foregroundColor: Color.lerp(a?.foregroundColor, b?.foregroundColor, t),
-      border: BoxBorder.lerp(a?.border, b?.border, t),
-      borderRadius: BorderRadiusGeometry.lerp(a?.borderRadius, b?.borderRadius, t),
     );
 }

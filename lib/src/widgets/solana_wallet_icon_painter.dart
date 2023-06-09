@@ -9,12 +9,13 @@ import 'package:flutter/material.dart';
 /// ------------------------------------------------------------------------------------------------
 
 /// An icon painter.
+@immutable
 abstract class SolanaWalletIconPainter extends CustomPainter {
   
   /// Draws an icon.
   const SolanaWalletIconPainter({
     required this.color,
-    required this.strokeWidth,
+    this.strokeWidth = 3.0,
   });
 
   /// The icon color.
@@ -58,8 +59,6 @@ abstract class SolanaWalletIconPainter extends CustomPainter {
     required final RRect bgRRect,
   }) {
     final Paint paint = painter();
-    // canvas.drawCircle(rect.center, size.width*0.5, paint);
-    // canvas.drawPath(path.shift(Offset(rect.left, rect.top), paint);
     canvas.saveLayer(Offset.zero & size, paint);
     paint.style = PaintingStyle.fill;
     canvas.drawRRect(bgRRect, paint);
@@ -79,12 +78,13 @@ abstract class SolanaWalletIconPainter extends CustomPainter {
 /// ------------------------------------------------------------------------------------------------
 
 /// A tick (✓) icon painter.
+@immutable
 class SolanaWalletTickIcon extends SolanaWalletIconPainter {
 
   /// Draws a tick (✓) icon.
   const SolanaWalletTickIcon({
     required super.color,
-    required super.strokeWidth, 
+    super.strokeWidth, 
   });
 
   @override
@@ -107,12 +107,13 @@ class SolanaWalletTickIcon extends SolanaWalletIconPainter {
 /// ------------------------------------------------------------------------------------------------
 
 /// A bang (!) icon painter.
+@immutable
 class SolanaWalletBangIcon extends SolanaWalletIconPainter {
 
   /// Draws a bang (!) icon.
   const SolanaWalletBangIcon({
     required super.color,
-    required super.strokeWidth, 
+    super.strokeWidth, 
   });
 
   @override
@@ -138,12 +139,13 @@ class SolanaWalletBangIcon extends SolanaWalletIconPainter {
 /// ------------------------------------------------------------------------------------------------
 
 /// A wallet ([ :]) icon painter.
+@immutable
 class SolanaWalletIcon extends SolanaWalletIconPainter {
 
   /// Draws a wallet ([ :]) icon.
   const SolanaWalletIcon({
     required super.color,
-    required super.strokeWidth, 
+    super.strokeWidth, 
   });
 
   @override
