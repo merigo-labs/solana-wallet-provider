@@ -345,10 +345,10 @@ packages:
     dependency: transitive
     description:
       name: solana_wallet_adapter
-      sha256: "8527c50dab33186c128312e3fe9ad89356e3c7d17b9cb4bde0db6e302dc35bfd"
+      sha256: "33901661f46f63f70fc545b73362b2e8c8d81a1fa5c9c7393dab3c03031a8ff1"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   solana_wallet_adapter_android:
     dependency: transitive
     description:
@@ -387,7 +387,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.1.1"
+    version: "0.1.2"
   solana_web3:
     dependency: transitive
     description:
