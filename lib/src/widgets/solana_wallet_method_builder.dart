@@ -131,6 +131,8 @@ class _SolanaWalletMethodBuilderState<T> extends State<SolanaWalletMethodBuilder
     if (mounted && _snapshot.connectionState != snapshot.connectionState) {
       if (!_isDismissState(snapshot.connectionState)) {
         setState(() => _snapshot = snapshot);
+      } else {
+        SolanaWalletProvider.close(context);
       }
     }
   } 

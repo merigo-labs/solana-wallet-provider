@@ -1,3 +1,11 @@
+## 0.1.7
+
+* Update Phantom logo.
+
+## 0.1.6
+
+* Auto dismiss modal.
+
 ## 0.1.5
 
 * Update dependencies.
