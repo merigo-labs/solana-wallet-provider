@@ -108,18 +108,18 @@ class _SolanaWalletMethodBuilderState<T> extends State<SolanaWalletMethodBuilder
       && error.code == SolanaWalletAdapterExceptionCode.cancelled;
   }
 
-  /// Returns true if [connectionState] is equivalent to the provided 
+  /// Returns true if [snapshot] is equivalent to the provided 
   /// [SolanaWalletMethodBuilder.dismissState].
-  bool _isDismissState(final ConnectionState connectionState) {
+  bool _isDismissState(final AsyncSnapshot snapshot) {
     final DismissState? dismissState = widget.dismissState;
-    if (dismissState == null || connectionState != ConnectionState.done) {
+    if (dismissState == null || snapshot.connectionState != ConnectionState.done) {
       return false;
     }
     switch (dismissState) {
       case DismissState.success:
-        return !_snapshot.hasError;
+        return !snapshot.hasError;
       case DismissState.error:
-        return _snapshot.hasError;
+        return snapshot.hasError;
       case DismissState.done:
         return true;
     }
@@ -129,7 +129,7 @@ class _SolanaWalletMethodBuilderState<T> extends State<SolanaWalletMethodBuilder
   /// an equivalent [DismissState].
   void _setSnapshot(final AsyncSnapshot<T> snapshot) {
     if (mounted && _snapshot.connectionState != snapshot.connectionState) {
-      if (!_isDismissState(snapshot.connectionState)) {
+      if (!_isDismissState(snapshot)) {
         setState(() => _snapshot = snapshot);
       } else {
         SolanaWalletProvider.close(context);

@@ -1,3 +1,7 @@
+## 0.1.8
+
+* Fix dismiss state to snapshot mapping.
+
 ## 0.1.7
 
 * Update Phantom logo.
